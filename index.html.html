@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="he" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>NieR Hacking App</title>
+    <style>
+        body { 
+            margin: 0; background: #c8c2b5; overflow: hidden; 
+            touch-action: none; font-family: 'Courier New', monospace; 
+            cursor: crosshair; user-select: none; -webkit-user-select: none;
+        }
+        canvas { display: block; }
+        #ui { 
+            position: absolute; top: 20px; left: 20px; color: #5a554a; 
+            font-size: 16px; font-weight: bold; pointer-events: none;
+            text-shadow: 1px 1px 0px #fff; z-index: 10;
+        }
+        .joy-area {
+            position: absolute; bottom: 0; width: 50%; height: 50%;
+            display: flex; align-items: center; justify-content: center; z-index: 5;
+        }
+        #left-area { left: 0; }
+        #right-area { right: 0; }
+        .stick-base {
+            width: 90px; height: 90px; border: 2px solid rgba(90, 85, 74, 0.2);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        }
+        .stick-knob { width: 40px; height: 40px; background: rgba(90, 85, 74, 0.4); border-radius: 50%; }
+
+        /* סגנון החלונות הקופצים בסגנון NieR */
+        .nier-popup {
+            position: absolute;
+            background: #dad4c8;
+            color: #4a453a;
+            border: 2px solid #4a453a;
+            padding: 10px 15px;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+            z-index: 1000;
+            pointer-events: none;
+        }
+        .nier-popup-header {
+            background: #4a453a;
+            color: #dad4c8;
+            padding: 2px 5px;
+            margin: -10px -15px 10px -15px;
+            font-size: 12px;
+        }
+
+        /* כפתור הנסה שנית */
+        #restart-btn {
+            display: none;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 40px;
+            background: #4a453a;
+            color: #dad4c8;
+            border: 2px solid #dad4c8;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 1001;
+            font-family: 'Courier New', monospace;
+            box-shadow: 0px 0px 15px rgba(0,0,0,0.5);
+        }
+        #restart-btn:active { background: #dad4c8; color: #4a453a; }
+    </style>
+</head>
+<body>
+    <audio id="bgm" loop><source src="bgm.mp3" type="audio/mpeg"></audio>
+
+    <div id="ui">
+        [ SYS : HACKING PROTOCOL ]<br>
+        [ TARGET CORE: <span id="target-hp">100</span>% ]<br>
+        <span style="font-size: 12px; font-weight: normal;">Touch Left: Move | Touch Right: Aim/Shoot</span>
+    </div>
+    
+    <div id="left-area" class="joy-area"><div class="stick-base"><div class="stick-knob"></div></div></div>
+    <div id="right-area" class="joy-area"><div class="stick-base"><div class="stick-knob"></div></div></div>
+    
+    <button id="restart-btn" onclick="location.reload()">נסה שנית</button>
+
+    <canvas id="game"></canvas>
+
+<script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const bgm = document.getElementById('bgm');
+    
+    // Web Audio API לסאונד דיגיטלי
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+
+    function playSynthSFX(type) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+
+        if (type === 'shoot') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(880, now);
+            osc.frequency.exponentialRampToValueAtTime(110, now + 0.1);
+            gainNode.gain.setValueAtTime(0.05, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+            osc.start(now); osc.stop(now + 0.1);
+        } else if (type === 'hit') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.exponentialRampToValueAtTime(50, now + 0.15);
+            gainNode.gain.setValueAtTime(0.1, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            osc.start(now); osc.stop(now + 0.15);
+        } else if (type === 'glitch') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100 + Math.random()*600, now);
+            gainNode.gain.setValueAtTime(0.08, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+            osc.start(now); osc.stop(now + 0.05);
+        } else if (type === 'win') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, now);
+            osc.frequency.setValueAtTime(554.37, now + 0.1);
+            osc.frequency.setValueAtTime(659.25, now + 0.2);
+            osc.frequency.setValueAtTime(880, now + 0.3);
+            gainNode.gain.setValueAtTime(0.2, now);
+            gainNode.gain.linearRampToValueAtTime(0, now + 0.6);
+            osc.start(now); osc.stop(now + 0.6);
+        }
+    }
+
+    let player = { x: 0, y: 0, size: 15, hp: 3, angle: -Math.PI/2, lastShot: 0, invulnerableUntil: 0 };
+    let core = { x: 0, y: 0, size: 25, hp: 15, maxHp: 15, lastShot: 0 };
+    let walls = [], bullets = [], enemyBullets = [];
+    let isGameOver = false;
+    let gameStartTime = Date.now();
+    let audioStarted = false;
+    let hasMoved = false; // דגל חסינות התחלתית
+
+    let touchMoveDir = { x: 0, y: 0 };
+    let touchAimDir = { x: 0, y: 0 };
+    let lastShootDir = { x: 0, y: -1 };
+
+    function init() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        player.x = canvas.width / 2;
+        player.y = canvas.height * 0.85;
+        core.x = canvas.width / 2;
+        core.y = canvas.height / 4;
+        gameStartTime = Date.now();
+
+        for(let i=0; i<6; i++) {
+            let angle = (i/6) * Math.PI * 2;
+            walls.push({ x: core.x + Math.cos(angle)*65, y: core.y + Math.sin(angle)*65, hp: 4, size: 24, type: 'static' });
+        }
+        for(let i=0; i<8; i++) {
+            let angle = (i/8) * Math.PI * 2;
+            walls.push({ x: 0, y: 0, angle: angle, dist: 110, hp: 3, size: 18, rotate: true, speed: 0.015 });
+        }
+        
+        requestAnimationFrame(loop);
+    }
+
+    function tryStartAudio() {
+        if(!audioStarted) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            bgm.volume = 0.4;
+            let playPromise = bgm.play();
+            if (playPromise !== undefined) {
+                playPromise.then(_ => { audioStarted = true; })
+                .catch(error => { audioStarted = true; });
+            }
+        }
+    }
+
+    // ניהול מגע (Touch) מותאם לטלפון
+    window.addEventListener('touchstart', (e) => { 
+        tryStartAudio(); 
+        hasMoved = true; // מבטל חסינות ברגע שנוגעים במסך
+        handleTouch(e); 
+    }, {passive: false});
+    window.addEventListener('touchmove', handleTouch, {passive: false});
+    window.addEventListener('touchend', (e) => {
+        let leftActive = false;
+        let rightActive = false;
+        for(let t of e.touches) {
+            if(t.clientX < canvas.width/2) leftActive = true;
+            else rightActive = true;
+        }
+        if(!leftActive) touchMoveDir = {x:0, y:0};
+        if(!rightActive) touchAimDir = {x:0, y:0}; 
+    });
+
+    function handleTouch(e) {
+        for(let t of e.touches) {
+            let isLeft = t.clientX < canvas.width/2;
+            let centerX = isLeft ? 90 : canvas.width - 90;
+            let centerY = canvas.height - 110;
+            let dx = t.clientX - centerX;
+            let dy = t.clientY - centerY;
+            let dist = Math.hypot(dx, dy);
+            let angle = Math.atan2(dy, dx);
+
+            if(isLeft) {
+                let power = Math.min(dist / 45, 1);
+                touchMoveDir = { x: Math.cos(angle) * power, y: Math.sin(angle) * power };
+            } else {
+                if (dist > 10) { 
+                    touchAimDir = { x: Math.cos(angle), y: Math.sin(angle) };
+                    lastShootDir = touchAimDir;
+                    player.angle = angle;
+                }
+            }
+        }
+        e.preventDefault();
+    }
+
+    // פונקציית הפסד סגנון NieR
+    function triggerLoss() {
+        isGameOver = true;
+        bgm.pause();
+        
+        let popupsCount = 0;
+        let maxPopups = 12;
+        
+        // יצירת חלונות שגיאה קופצים ברצף
+        let glitchInterval = setInterval(() => {
+            playSynthSFX('glitch');
+            
+            let div = document.createElement('div');
+            div.className = 'nier-popup';
+            div.style.left = (10 + Math.random() * 60) + '%';
+            div.style.top = (10 + Math.random() * 70) + '%';
+            div.innerHTML = `
+                <div class="nier-popup-header">WARNING</div>
+                SYSTEM CORRUPTED<br>איבדת נקודת פגיעה
+            `;
+            document.body.appendChild(div);
+            
+            popupsCount++;
+            if (popupsCount >= maxPopups) {
+                clearInterval(glitchInterval);
+                document.getElementById('restart-btn').style.display = 'block';
+            }
+        }, 120);
+    }
+
+    function loop(time) {
+        if(isGameOver) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        let elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
+        let timeLeft = 60 - elapsed;
+        
+        if (timeLeft <= 0) {
+            triggerLoss();
+            return;
+        }
+
+        let finalMoveX = touchMoveDir.x;
+        let finalMoveY = touchMoveDir.y;
+        
+        let moveDist = Math.hypot(finalMoveX, finalMoveY);
+        if(moveDist > 1) { finalMoveX /= moveDist; finalMoveY /= moveDist; }
+
+        player.x += finalMoveX * 5.0;
+        player.y += finalMoveY * 5.0;
+        player.x = Math.max(20, Math.min(canvas.width-20, player.x));
+        player.y = Math.max(20, Math.min(canvas.height-20, player.y));
+
+        if(hasMoved && time - player.lastShot > 100) {
+            bullets.push({ x: player.x, y: player.y, vx: lastShootDir.x * 14, vy: lastShootDir.y * 14 });
+            player.lastShot = time;
+            playSynthSFX('shoot');
+        }
+
+        if (time - core.lastShot > 1200) { 
+            let angleToPlayer = Math.atan2(player.y - core.y, player.x - core.x);
+            for(let offset of [-0.15, 0, 0.15]) {
+                enemyBullets.push({ 
+                    x: core.x, y: core.y, 
+                    vx: Math.cos(angleToPlayer + offset) * 4, 
+                    vy: Math.sin(angleToPlayer + offset) * 4 
+                });
+            }
+            core.lastShot = time;
+        }
+
+        walls.forEach((w, wi) => {
+            if(w.rotate) {
+                w.angle += w.speed;
+                w.x = core.x + Math.cos(w.angle) * w.dist;
+                w.y = core.y + Math.sin(w.angle) * w.dist;
+            }
+            ctx.fillStyle = "#5a554a";
+            ctx.save();
+            ctx.translate(w.x, w.y);
+            ctx.rotate(w.angle || 0);
+            ctx.fillRect(-w.size/2, -w.size/2, w.size, w.size);
+            ctx.strokeStyle = "#c8c2b5"; ctx.lineWidth = 2; ctx.strokeRect(-w.size/2, -w.size/2, w.size, w.size);
+            ctx.restore();
+        });
+
+        for (let bi = bullets.length - 1; bi >= 0; bi--) {
+            let b = bullets[bi];
+            b.x += b.vx; b.y += b.vy;
+            
+            ctx.fillStyle = "#ffffff";
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = "#ffffff";
+            ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            let hit = false;
+            for (let wi = walls.length - 1; wi >= 0; wi--) {
+                let w = walls[wi];
+                if(Math.hypot(b.x - w.x, b.y - w.y) < w.size/2 + 4) {
+                    w.hp--; 
+                    hit = true;
+                    playSynthSFX('hit');
+                    if(w.hp <= 0) walls.splice(wi, 1);
+                    break;
+                }
+            }
+
+            if (!hit && Math.hypot(b.x - core.x, b.y - core.y) < core.size) {
+                core.hp -= 0.2; 
+                hit = true;
+                playSynthSFX('hit');
+                document.getElementById('target-hp').innerText = Math.max(0, Math.floor((core.hp/core.maxHp)*100));
+                
+                if(core.hp <= 0) { 
+                    isGameOver = true;
+                    bgm.pause(); 
+                    playSynthSFX('win');
+                    setTimeout(() => {
+                        alert("המערכת נפרצה בהצלחה"); 
+                        location.reload(); 
+                    }, 800);
+                }
+            }
+
+            if (hit || b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(bi, 1);
+        }
+
+        for (let ei = enemyBullets.length - 1; ei >= 0; ei--) {
+            let eb = enemyBullets[ei];
+            eb.x += eb.vx; eb.y += eb.vy;
+            
+            ctx.fillStyle = "#ff3366";
+            ctx.beginPath(); ctx.arc(eb.x, eb.y, 6, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = "#222"; ctx.lineWidth = 2; ctx.stroke();
+
+            // פגיעה בשחקן מתרחשת רק אם הוא זז (hasMoved) וזמן החסינות עבר
+            if (hasMoved && time > player.invulnerableUntil && Math.hypot(eb.x - player.x, eb.y - player.y) < player.size + 2) {
+                player.hp -= 1;
+                player.invulnerableUntil = time + 1500;
+                
+                if (player.hp <= 0) {
+                    triggerLoss();
+                } else {
+                    playSynthSFX('hit'); // צליל פגיעה רגיל אם נשארו חיים
+                }
+                enemyBullets.splice(ei, 1);
+                continue;
+            }
+            if (eb.x < 0 || eb.x > canvas.width || eb.y < 0 || eb.y > canvas.height) enemyBullets.splice(ei, 1);
+        }
+
+        ctx.fillStyle = "#222";
+        ctx.beginPath(); ctx.arc(core.x, core.y, core.size, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 4; ctx.stroke();
+        
+        ctx.fillStyle = timeLeft <= 10 ? "#cc3300" : "#5a554a"; 
+        ctx.font = "bold 14px 'Courier New'";
+        ctx.fillText(timeLeft + "s", player.x + 18, player.y - 18);
+
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.rotate(player.angle + Math.PI/2);
+        
+        let isBlinking = (time < player.invulnerableUntil) && (Math.floor(time / 100) % 2 === 0);
+        
+        if (!isBlinking) {
+            ctx.fillStyle = "#111";
+            ctx.strokeStyle = "#fff"; 
+            ctx.lineWidth = 2;
+            ctx.lineJoin = "round";
+
+            if (player.hp >= 1) {
+                ctx.beginPath();
+                ctx.moveTo(0, -16);  
+                ctx.lineTo(-5, 8);   
+                ctx.lineTo(5, 8);    
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+            }
+
+            if (player.hp >= 2) {
+                ctx.beginPath();
+                ctx.moveTo(4, -4);   
+                ctx.lineTo(14, 12);  
+                ctx.lineTo(6, 8);    
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+            }
+
+            if (player.hp >= 3) {
+                ctx.beginPath();
+                ctx.moveTo(-4, -4);  
+                ctx.lineTo(-14, 12); 
+                ctx.lineTo(-6, 8);   
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+            }
+        }
+        ctx.restore();
+
+        requestAnimationFrame(loop);
+    }
+
+    init();
+</script>
+</body>
+</html>
