@@ -6,16 +6,15 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>NieR Hacking - Responsive Edition</title>
+    <title>NieR Hacking - Fixed Protocol</title>
     <style>
         body { 
             margin: 0; background: #c8c2b5; overflow: hidden; 
             touch-action: none; font-family: 'Courier New', monospace; 
             cursor: crosshair; user-select: none; -webkit-user-select: none;
         }
-        canvas { display: block; }
+        canvas { display: block; width: 100vw; height: 100vh; }
         
-        /* אזהרת סיבוב מסך - תמיד בעדיפות עליונה */
         #orientation-warning {
             display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: #050505; color: #fff; z-index: 99999;
@@ -26,7 +25,6 @@
             #orientation-warning { display: flex; }
         }
 
-        /* מסך הפתיחה - מוצג כברירת מחדל */
         #start-screen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: #c8c2b5; z-index: 50000;
@@ -39,10 +37,11 @@
             box-shadow: 0px 10px 20px rgba(0,0,0,0.3);
         }
 
+        /* ה-UI העליון שהוחזר */
         #ui { 
-            position: absolute; top: 15px; left: 15px; color: #5a554a; 
-            font-size: 16px; font-weight: bold; pointer-events: none;
-            text-shadow: 1px 1px 0px #fff; z-index: 10;
+            position: absolute; top: 20px; left: 20px; color: #5a554a; 
+            font-size: 18px; font-weight: bold; pointer-events: none;
+            text-shadow: 1px 1px 0px #fff; z-index: 100;
         }
         
         .joy-area {
@@ -59,7 +58,7 @@
 
         #restart-container {
             display: none; position: fixed; top: 0; left: 0;
-            width: 100vw; height: 100vh; z-index: 3000;
+            width: 100vw; height: 100vh; z-index: 60000;
             align-items: center; justify-content: center;
             background: rgba(0,0,0,0.4);
         }
@@ -67,14 +66,13 @@
             padding: 15px 40px; background: #4a453a; color: #dad4c8;
             border: 2px solid #dad4c8; font-size: 24px; font-weight: bold;
             cursor: pointer; font-family: 'Courier New', monospace;
-            box-shadow: 0px 0px 15px rgba(0,0,0,0.5);
         }
 
         .nier-popup {
             position: absolute; background: #dad4c8; color: #4a453a;
             border: 2px solid #4a453a; padding: 10px 15px;
             font-family: monospace; font-weight: bold; font-size: 14px;
-            box-shadow: 4px 4px 0px rgba(0,0,0,0.2); z-index: 1000; pointer-events: none;
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.2); z-index: 1000;
         }
     </style>
 </head>
@@ -111,7 +109,7 @@
     const bgm = document.getElementById('bgm');
     const startScreen = document.getElementById('start-screen');
     const restartContainer = document.getElementById('restart-container');
-    const startBtn = document.getElementById('start-btn');
+    const targetHpDisplay = document.getElementById('target-hp');
     
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     const audioCtx = new AudioContext();
@@ -120,49 +118,34 @@
         if (audioCtx.state === 'suspended') return;
         const osc = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
-        osc.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
+        osc.connect(gainNode); gainNode.connect(audioCtx.destination);
         const now = audioCtx.currentTime;
 
         if (type === 'shoot') {
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(800, now);
+            osc.type = 'square'; osc.frequency.setValueAtTime(800, now);
             osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
-            gainNode.gain.setValueAtTime(0.01, now);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-            osc.start(now); osc.stop(now + 0.1);
+            gainNode.gain.setValueAtTime(0.01, now); osc.start(now); osc.stop(now + 0.1);
         } else if (type === 'hit') {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(150, now);
-            gainNode.gain.setValueAtTime(0.08, now);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-            osc.start(now); osc.stop(now + 0.1);
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now);
+            gainNode.gain.setValueAtTime(0.08, now); osc.start(now); osc.stop(now + 0.1);
         } else if (type === 'win') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(500, now);
+            osc.type = 'sine'; osc.frequency.setValueAtTime(500, now);
             osc.frequency.linearRampToValueAtTime(1000, now + 0.5);
-            gainNode.gain.setValueAtTime(0.1, now);
-            gainNode.gain.linearRampToValueAtTime(0, now + 0.5);
-            osc.start(now); osc.stop(now + 0.5);
+            gainNode.gain.setValueAtTime(0.1, now); osc.start(now); osc.stop(now + 0.5);
         }
     }
 
     let player = { x: 0, y: 0, size: 9, hp: 3, angle: -Math.PI/2, lastShot: 0, invulnerableUntil: 0 };
     let core = { x: 0, y: 0, size: 14, hp: 15, maxHp: 15, lastShot: 0 }; 
     let walls = [], bullets = [], enemyBullets = [];
-    
-    let isGameActive = false;
-    let isGameOver = false;  
-    let hasMoved = false;     
-    let gameStartTime = 0;
-
-    let touchMoveDir = { x: 0, y: 0 };
-    let touchAimDir = { x: 0, y: 0 };
-    let lastShootDir = { x: 0, y: -1 };
+    let isGameActive = false, isGameOver = false, hasMoved = false, gameStartTime = 0;
+    let touchMoveDir = { x: 0, y: 0 }, touchAimDir = { x: 0, y: 0 }, lastShootDir = { x: 0, y: -1 };
 
     function initEnvironment() {
+        // קביעת גודל הקנבס באופן מיידי
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+        
         player.x = canvas.width / 2;
         player.y = canvas.height * 0.8;
         core.x = canvas.width / 2;
@@ -177,25 +160,20 @@
             let angle = (i/8) * Math.PI * 2;
             walls.push({ x: 0, y: 0, angle: angle, dist: 65, hp: 3, size: 10, rotate: true, speed: 0.015 });
         }
+        draw(); // ציור ראשוני
     }
 
-    // פונקציית עדכון גודל בסיבוב מסך
-    window.addEventListener('resize', () => {
-        initEnvironment();
-        // אם המשחק כבר פעיל, נעדכן את הציור
-        if (isGameActive && !isGameOver) {
-            draw();
-        }
-    });
+    window.addEventListener('load', initEnvironment);
+    window.addEventListener('resize', initEnvironment);
 
-    startBtn.addEventListener('pointerdown', () => {
+    document.getElementById('start-btn').addEventListener('pointerdown', () => {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         bgm.volume = 0.8;
         bgm.play().catch(e => console.log("BGM error"));
         
         startScreen.style.display = 'none';
         isGameActive = true;
-        initEnvironment();
+        initEnvironment(); // חישוב מחדש של המיקומים ברגע ההפעלה
         requestAnimationFrame(loop);
     });
 
@@ -284,7 +262,7 @@
             }
             if (!hit && Math.hypot(b.x - core.x, b.y - core.y) < core.size) {
                 core.hp -= 0.2; hit = true; playSynthSFX('hit');
-                document.getElementById('target-hp').innerText = Math.max(0, Math.floor((core.hp/core.maxHp)*100));
+                targetHpDisplay.innerText = Math.max(0, Math.floor((core.hp/core.maxHp)*100));
                 if(core.hp <= 0) triggerWin();
             }
             if (hit || b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(bi, 1);
@@ -326,13 +304,21 @@
 
         ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.angle + Math.PI/2);
         let time = Date.now();
-        if (!(hasMoved && time < player.invulnerableUntil && Math.floor(time / 100) % 2 === 0)) {
+        let isBlinking = (hasMoved && time < player.invulnerableUntil && Math.floor(time / 100) % 2 === 0);
+        
+        if (!isBlinking) {
             ctx.fillStyle = "#111"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
             if (player.hp >= 1) { ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-4, 5); ctx.lineTo(4, 5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
             if (player.hp >= 2) { ctx.beginPath(); ctx.moveTo(3, -2); ctx.lineTo(9, 7); ctx.lineTo(4, 5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
             if (player.hp >= 3) { ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(-9, 7); ctx.lineTo(-4, 5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
         }
         ctx.restore();
+
+        // ציור זמן
+        let timeLeft = 60;
+        if (hasMoved) timeLeft = 60 - Math.floor((Date.now() - gameStartTime) / 1000);
+        ctx.fillStyle = timeLeft <= 10 ? "#cc3300" : "#5a554a"; 
+        ctx.font = "bold 14px 'Courier New'"; ctx.fillText(timeLeft + "s", player.x + 18, player.y - 18);
     }
 
     function triggerLoss() {
@@ -342,11 +328,11 @@
 
     function triggerWin() {
         isGameOver = true; bgm.pause();
-        alert("המערכת נפרצה בהצלחה"); location.reload();
+        playSynthSFX('win');
+        setTimeout(() => { alert("המערכת נפרצה בהצלחה"); location.reload(); }, 800);
     }
 
     initEnvironment();
-    draw();
 </script>
 </body>
 </html>
