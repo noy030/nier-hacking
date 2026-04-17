@@ -36,12 +36,21 @@
             border: 3px solid #4a453a; font-size: 32px; font-family: 'Courier New', monospace;
             font-weight: bold; cursor: pointer; letter-spacing: 2px;
             box-shadow: 0px 10px 20px rgba(0,0,0,0.2);
+            transition: transform 0.1s, background 0.2s;
+        }
+        #start-btn:active {
+            transform: scale(0.95);
+            background: #5a554a;
         }
 
-        #ui { 
-            position: absolute; top: 15px; left: 15px; color: #5a554a; 
-            font-size: 16px; font-weight: bold; pointer-events: none;
+        /* ממשק עליון חדש */
+        #top-ui { 
+            position: absolute; top: 15px; left: 15px; color: #4a453a; 
+            font-size: 14px; font-weight: bold; pointer-events: none;
             text-shadow: 1px 1px 0px #fff; z-index: 10;
+            line-height: 1.5;
+            background: rgba(200, 194, 181, 0.7);
+            padding: 5px 10px; border-left: 4px solid #4a453a;
         }
         
         .joy-area {
@@ -58,32 +67,44 @@
         .stick-knob { 
             width: 50px; height: 50px; background: rgba(90, 85, 74, 0.8); 
             border-radius: 50%; position: absolute;
-            /* מונע קפיצות ויזואליות קטנות בתנועה */
             will-change: transform; 
         }
 
         .nier-popup {
             position: absolute; background: #dad4c8; color: #4a453a;
             border: 2px solid #4a453a; padding: 10px 15px;
-            font-family: monospace; font-weight: bold; font-size: 14px;
+            font-family: 'Courier New', monospace; font-weight: bold; font-size: 14px;
             box-shadow: 4px 4px 0px rgba(0,0,0,0.2); z-index: 1000; pointer-events: none;
+            animation: glitch-anim 0.2s ease-out;
         }
         .nier-popup-header {
-            background: #4a453a; color: #dad4c8; padding: 2px 5px;
+            background: #990000; color: #dad4c8; padding: 2px 5px;
             margin: -10px -15px 10px -15px; font-size: 12px;
+        }
+
+        @keyframes glitch-anim {
+            0% { transform: translate(-5px, 5px); opacity: 0; }
+            50% { transform: translate(2px, -2px); opacity: 0.8; }
+            100% { transform: translate(0, 0); opacity: 1; }
         }
 
         #restart-container {
             display: none; position: fixed; top: 0; left: 0;
             width: 100%; height: 100%; z-index: 3000;
             align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.4);
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(2px);
         }
         #restart-btn {
             padding: 15px 40px; background: #4a453a; color: #dad4c8;
             border: 2px solid #dad4c8; font-size: 24px; font-weight: bold;
             cursor: pointer; font-family: 'Courier New', monospace;
             box-shadow: 0px 0px 15px rgba(0,0,0,0.5); pointer-events: auto;
+            opacity: 0; animation: fade-in 0.5s forwards;
+        }
+        
+        @keyframes fade-in {
+            to { opacity: 1; }
         }
     </style>
 </head>
@@ -100,9 +121,10 @@
 
     <audio id="bgm" loop preload="auto"><source src="bgm.mp3" type="audio/mpeg"></audio>
 
-    <div id="ui">
-        [ SYS : HACKING PROTOCOL ]<br>
-        [ TARGET CORE: <span id="target-hp">100</span>% ]
+    <div id="top-ui">
+        [ SYS : PROTOCOL v1.05 ]<br>
+        [ MODE: TACTICAL ]<br>
+        [ HACKING SUCCESS: <span id="hack-progress">0</span>% ]
     </div>
     
     <div id="left-area" class="joy-area"><div class="stick-base"><div class="stick-knob" id="left-knob"></div></div></div>
@@ -120,8 +142,10 @@
     const bgm = document.getElementById('bgm');
     const startScreen = document.getElementById('start-screen');
     const restartContainer = document.getElementById('restart-container');
+    const restartBtn = document.getElementById('restart-btn');
     const leftKnob = document.getElementById('left-knob');
     const rightKnob = document.getElementById('right-knob');
+    const progressText = document.getElementById('hack-progress');
     
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     const audioCtx = new AudioContext();
@@ -163,8 +187,9 @@
         }
     }
 
+    // הגדלנו את רדיוס הליבה ל-22
     let player = { x: 0, y: 0, size: 9, hp: 3, angle: -Math.PI/2, lastShot: 0, invulnerableUntil: 0 };
-    let core = { x: 0, y: 0, size: 14, hp: 15, maxHp: 15, lastShot: 0 }; 
+    let core = { x: 0, y: 0, size: 22, hp: 15, maxHp: 15, lastShot: 0 }; 
     let walls = [], bullets = [], enemyBullets = [];
     
     let isGameActive = false; 
@@ -192,11 +217,11 @@
 
         for(let i=0; i<6; i++) {
             let angle = (i/6) * Math.PI * 2;
-            walls.push({ x: core.x + Math.cos(angle)*38, y: core.y + Math.sin(angle)*38, hp: 4, size: 14 });
+            walls.push({ x: core.x + Math.cos(angle)*45, y: core.y + Math.sin(angle)*45, hp: 4, size: 14 });
         }
         for(let i=0; i<8; i++) {
             let angle = (i/8) * Math.PI * 2;
-            walls.push({ x: 0, y: 0, angle: angle, dist: 65, hp: 3, size: 10, rotate: true, speed: 0.015 });
+            walls.push({ x: 0, y: 0, angle: angle, dist: 75, hp: 3, size: 10, rotate: true, speed: 0.015 });
         }
         
         ctx.fillStyle = "#c8c2b5";
@@ -205,9 +230,11 @@
 
     window.addEventListener('resize', resizeCanvas);
 
-    // שימוש ב-click פותר את בעיית חסימת האודיו במובייל בהרצה הראשונה
     document.getElementById('start-btn').addEventListener('click', () => {
         if (audioCtx.state === 'suspended') audioCtx.resume();
+        
+        // הבטחת טעינה וניגון
+        bgm.load();
         bgm.volume = 0.8;
         bgm.play().catch(e => console.log("BGM file missing"));
         
@@ -221,7 +248,6 @@
         window.location.reload();
     });
 
-    // --- מערכת ג'ויסטיק חלקה וללא דריפט ---
     function updateKnob(knob, dx, dy) {
         knob.style.transform = `translate(${dx}px, ${dy}px)`;
     }
@@ -252,11 +278,9 @@
                 let dist = Math.hypot(dx, dy);
                 let angle = Math.atan2(dy, dx);
 
-                // עדכון ויזואלי של הכפתור
                 let displayDist = Math.min(dist, MAX_JOY_DIST);
                 updateKnob(leftKnob, Math.cos(angle) * displayDist, Math.sin(angle) * displayDist);
 
-                // Deadzone כדי למנוע דריפט קל
                 if (dist > 5) {
                     let power = Math.min(dist / MAX_JOY_DIST, 1);
                     touchMoveDir = { x: Math.cos(angle) * power, y: Math.sin(angle) * power };
@@ -285,7 +309,6 @@
             }
         }
 
-        // איפוס מוחלט אם לא מזוהה מגע בצד מסוים
         if (!leftActive) resetLeftStick();
         if (!rightActive) resetRightStick();
         
@@ -310,24 +333,32 @@
     window.addEventListener('touchcancel', (e) => {
         if(isGameActive && !isGameOver) handleTouches(e);
     });
-    // ------------------------------------
 
     function triggerLoss() {
         if(isGameOver) return;
         isGameOver = true;
         bgm.pause();
+        
         let popupsCount = 0;
+        // מציג הודעות גליץ' ברצף
         let glitchInterval = setInterval(() => {
             playSynthSFX('glitch');
             let div = document.createElement('div');
             div.className = 'nier-popup';
-            div.style.left = (10 + Math.random() * 60) + '%';
-            div.style.top = (10 + Math.random() * 60) + '%';
-            div.innerHTML = `<div class="nier-popup-header">WARNING</div>SYSTEM CORRUPTED<br>איבדת נקודת פגיעה`;
+            div.style.left = (15 + Math.random() * 50) + '%';
+            div.style.top = (20 + Math.random() * 40) + '%';
+            div.innerHTML = `<div class="nier-popup-header">WARNING</div>איבדת נקודת פגיעה`;
             document.body.appendChild(div);
             popupsCount++;
-            if (popupsCount >= 12) { clearInterval(glitchInterval); restartContainer.style.display = 'flex'; }
-        }, 100);
+            
+            // רק אחרי ש-8 הודעות קופצות, עוצרים את האינטרוול ומציגים את כפתור "נסה שנית"
+            if (popupsCount >= 8) { 
+                clearInterval(glitchInterval); 
+                setTimeout(() => {
+                    restartContainer.style.display = 'flex'; 
+                }, 600); // השהייה קטנה לפני שהמסך והכפתור מופיעים
+            }
+        }, 150);
     }
 
     function loop(time) {
@@ -340,13 +371,13 @@
         }
         if (timeLeft <= 0) { triggerLoss(); return; }
 
-        player.x += touchMoveDir.x * 4.5;
-        player.y += touchMoveDir.y * 4.5;
+        // מהירות מופחתת ותנועה חלקה יותר (2.8 במקום 4.5)
+        player.x += touchMoveDir.x * 2.8;
+        player.y += touchMoveDir.y * 2.8;
         player.x = Math.max(15, Math.min(canvas.width-15, player.x));
         player.y = Math.max(15, Math.min(canvas.height-15, player.y));
 
         if(hasMoved && time - player.lastShot > 110) {
-            // הוספת תנאי שיורה רק אם הג'ויסטיק הימני פעיל (כדי שלא יירה סתם למעלה בתחילת משחק)
             if (touchAimDir.x !== 0 || touchAimDir.y !== 0) {
                 bullets.push({ x: player.x, y: player.y, vx: lastShootDir.x * 12, vy: lastShootDir.y * 12 });
                 player.lastShot = time;
@@ -385,9 +416,11 @@
             }
             if (!hit && Math.hypot(b.x - core.x, b.y - core.y) < core.size) {
                 core.hp -= 0.2; hit = true; playSynthSFX('hit');
-                document.getElementById('target-hp').innerText = Math.max(0, Math.floor((core.hp/core.maxHp)*100));
                 
-                // הודעת ניצחון ותיקון הקוד
+                // חישוב והצגת אחוז ההתקדמות (0 עד 100)
+                let hackPercent = Math.min(100, Math.max(0, Math.floor((1 - core.hp/core.maxHp) * 100)));
+                progressText.innerText = hackPercent;
+                
                 if(core.hp <= 0) { 
                     isGameOver = true; bgm.pause(); playSynthSFX('win'); 
                     setTimeout(() => { 
