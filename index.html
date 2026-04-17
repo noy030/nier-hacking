@@ -6,7 +6,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>NieR Hacking - Fixed Protocol</title>
+    <title>NieR Hacking - Snap Movement</title>
     <style>
         body { 
             margin: 0; background: #c8c2b5; overflow: hidden; 
@@ -37,7 +37,6 @@
             box-shadow: 0px 10px 20px rgba(0,0,0,0.3);
         }
 
-        /* ה-UI העליון שהוחזר */
         #ui { 
             position: absolute; top: 20px; left: 20px; color: #5a554a; 
             font-size: 18px; font-weight: bold; pointer-events: none;
@@ -51,10 +50,10 @@
         #left-area { left: 0; justify-content: flex-start; padding-left: 50px; }
         #right-area { right: 0; justify-content: flex-end; padding-right: 50px; }
         .stick-base {
-            width: 110px; height: 110px; border: 2px solid rgba(90, 85, 74, 0.4);
+            width: 100px; height: 100px; border: 2px solid rgba(90, 85, 74, 0.3);
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
         }
-        .stick-knob { width: 50px; height: 50px; background: rgba(90, 85, 74, 0.6); border-radius: 50%; }
+        .stick-knob { width: 45px; height: 45px; background: rgba(90, 85, 74, 0.5); border-radius: 50%; }
 
         #restart-container {
             display: none; position: fixed; top: 0; left: 0;
@@ -135,45 +134,55 @@
         }
     }
 
-    let player = { x: 0, y: 0, size: 9, hp: 3, angle: -Math.PI/2, lastShot: 0, invulnerableUntil: 0 };
-    let core = { x: 0, y: 0, size: 14, hp: 15, maxHp: 15, lastShot: 0 }; 
+    // הקטנת אויב ושחקן נוספת
+    let player = { x: 0, y: 0, size: 8, hp: 3, angle: -Math.PI/2, lastShot: 0, invulnerableUntil: 0 };
+    let core = { x: 0, y: 0, size: 10, hp: 15, maxHp: 15, lastShot: 0 }; 
     let walls = [], bullets = [], enemyBullets = [];
     let isGameActive = false, isGameOver = false, hasMoved = false, gameStartTime = 0;
+    
+    // איפוס קלטים קשיח
     let touchMoveDir = { x: 0, y: 0 }, touchAimDir = { x: 0, y: 0 }, lastShootDir = { x: 0, y: -1 };
 
     function initEnvironment() {
-        // קביעת גודל הקנבס באופן מיידי
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         
         player.x = canvas.width / 2;
-        player.y = canvas.height * 0.8;
+        player.y = canvas.height * 0.85;
         core.x = canvas.width / 2;
         core.y = canvas.height / 4;
 
         walls = [];
+        // מגינים מוקטנים וקרובים יותר
         for(let i=0; i<6; i++) {
             let angle = (i/6) * Math.PI * 2;
-            walls.push({ x: core.x + Math.cos(angle)*38, y: core.y + Math.sin(angle)*38, hp: 4, size: 14 });
+            walls.push({ x: core.x + Math.cos(angle)*30, y: core.y + Math.sin(angle)*30, hp: 4, size: 12 });
         }
         for(let i=0; i<8; i++) {
             let angle = (i/8) * Math.PI * 2;
-            walls.push({ x: 0, y: 0, angle: angle, dist: 65, hp: 3, size: 10, rotate: true, speed: 0.015 });
+            walls.push({ x: 0, y: 0, angle: angle, dist: 55, hp: 3, size: 8, rotate: true, speed: 0.018 });
         }
-        draw(); // ציור ראשוני
+        draw(); 
     }
 
     window.addEventListener('load', initEnvironment);
-    window.addEventListener('resize', initEnvironment);
+    window.addEventListener('resize', () => {
+        initEnvironment();
+        // אם המסך מסתובב בזמן שהמשחק לא פעיל, וודא שמסך הפתיחה נראה טוב
+        if (!isGameActive) {
+            startScreen.style.display = 'flex';
+        }
+    });
 
-    document.getElementById('start-btn').addEventListener('pointerdown', () => {
+    document.getElementById('start-btn').addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
         if (audioCtx.state === 'suspended') audioCtx.resume();
         bgm.volume = 0.8;
         bgm.play().catch(e => console.log("BGM error"));
         
         startScreen.style.display = 'none';
         isGameActive = true;
-        initEnvironment(); // חישוב מחדש של המיקומים ברגע ההפעלה
+        initEnvironment(); 
         requestAnimationFrame(loop);
     });
 
@@ -190,8 +199,23 @@
 
     window.addEventListener('touchmove', (e) => { if(isGameActive && !isGameOver) handleTouch(e); }, {passive: false});
 
+    // איפוס תנועה מיידי בעזיבה (מונע דריפט)
+    window.addEventListener('touchend', (e) => {
+        if (!isGameActive) return;
+        let leftActive = false;
+        let rightActive = false;
+        for(let i = 0; i < e.touches.length; i++) {
+            let t = e.touches[i];
+            if(t.clientX < window.innerWidth / 2) leftActive = true;
+            else rightActive = true;
+        }
+        if(!leftActive) touchMoveDir = { x: 0, y: 0 };
+        if(!rightActive) touchAimDir = { x: 0, y: 0 };
+    });
+
     function handleTouch(e) {
-        for(let t of e.touches) {
+        for(let i = 0; i < e.touches.length; i++) {
+            let t = e.touches[i];
             let isLeft = t.clientX < window.innerWidth/2;
             let centerX = isLeft ? 105 : window.innerWidth - 105;
             let centerY = window.innerHeight - 85; 
@@ -201,10 +225,15 @@
             let angle = Math.atan2(dy, dx);
 
             if(isLeft) {
-                let power = Math.min(dist / 45, 1);
-                touchMoveDir = { x: Math.cos(angle) * power, y: Math.sin(angle) * power };
+                // הוספת Deadzone של 10 פיקסלים למניעת תנועות קטנות לא רצויות
+                if (dist > 10) {
+                    let power = Math.min((dist - 10) / 35, 1);
+                    touchMoveDir = { x: Math.cos(angle) * power, y: Math.sin(angle) * power };
+                } else {
+                    touchMoveDir = { x: 0, y: 0 };
+                }
             } else {
-                if (dist > 10) { 
+                if (dist > 15) { 
                     touchAimDir = { x: Math.cos(angle), y: Math.sin(angle) };
                     lastShootDir = touchAimDir;
                     player.angle = angle;
@@ -226,10 +255,11 @@
         if (hasMoved) timeLeft = 60 - Math.floor((Date.now() - gameStartTime) / 1000);
         if (timeLeft <= 0) { triggerLoss(); return; }
 
-        player.x += touchMoveDir.x * 4.5;
-        player.y += touchMoveDir.y * 4.5;
-        player.x = Math.max(15, Math.min(canvas.width-15, player.x));
-        player.y = Math.max(15, Math.min(canvas.height-15, player.y));
+        // תנועה חלקה אך ללא החלקה
+        player.x += touchMoveDir.x * 5.0;
+        player.y += touchMoveDir.y * 5.0;
+        player.x = Math.max(12, Math.min(canvas.width-12, player.x));
+        player.y = Math.max(12, Math.min(canvas.height-12, player.y));
 
         if(hasMoved && time - player.lastShot > 110) {
             bullets.push({ x: player.x, y: player.y, vx: lastShootDir.x * 12, vy: lastShootDir.y * 12 });
@@ -239,8 +269,8 @@
 
         if (time - core.lastShot > 1200) { 
             let angleToPlayer = Math.atan2(player.y - core.y, player.x - core.x);
-            for(let offset of [-0.1, 0, 0.1]) {
-                enemyBullets.push({ x: core.x, y: core.y, vx: Math.cos(angleToPlayer + offset) * 3.5, vy: Math.sin(angleToPlayer + offset) * 3.5 });
+            for(let offset of [-0.08, 0, 0.08]) {
+                enemyBullets.push({ x: core.x, y: core.y, vx: Math.cos(angleToPlayer + offset) * 3.8, vy: Math.sin(angleToPlayer + offset) * 3.8 });
             }
             core.lastShot = time;
         }
@@ -287,38 +317,37 @@
             ctx.fillStyle = "#5a554a";
             ctx.save(); ctx.translate(w.x, w.y); ctx.rotate(w.angle || 0);
             ctx.fillRect(-w.size/2, -w.size/2, w.size, w.size);
-            ctx.strokeStyle = "#c8c2b5"; ctx.lineWidth = 1.5; ctx.strokeRect(-w.size/2, -w.size/2, w.size, w.size);
+            ctx.strokeStyle = "#c8c2b5"; ctx.lineWidth = 1.2; ctx.strokeRect(-w.size/2, -w.size/2, w.size, w.size);
             ctx.restore();
         });
 
         bullets.forEach(b => {
-            ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(b.x, b.y, 2.5, 0, Math.PI*2); ctx.fill();
         });
 
         enemyBullets.forEach(eb => {
-            ctx.fillStyle = "#ff3366"; ctx.beginPath(); ctx.arc(eb.x, eb.y, 4, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "#ff3366"; ctx.beginPath(); ctx.arc(eb.x, eb.y, 3.5, 0, Math.PI*2); ctx.fill();
         });
 
         ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(core.x, core.y, core.size, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5; ctx.stroke();
 
         ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.angle + Math.PI/2);
         let time = Date.now();
         let isBlinking = (hasMoved && time < player.invulnerableUntil && Math.floor(time / 100) % 2 === 0);
         
         if (!isBlinking) {
-            ctx.fillStyle = "#111"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
-            if (player.hp >= 1) { ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-4, 5); ctx.lineTo(4, 5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
-            if (player.hp >= 2) { ctx.beginPath(); ctx.moveTo(3, -2); ctx.lineTo(9, 7); ctx.lineTo(4, 5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
-            if (player.hp >= 3) { ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(-9, 7); ctx.lineTo(-4, 5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+            ctx.fillStyle = "#111"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.2;
+            if (player.hp >= 1) { ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(-4, 4); ctx.lineTo(4, 4); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+            if (player.hp >= 2) { ctx.beginPath(); ctx.moveTo(3, -2); ctx.lineTo(8, 6); ctx.lineTo(4, 4); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+            if (player.hp >= 3) { ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(-9, 6); ctx.lineTo(-4, 4); ctx.closePath(); ctx.fill(); ctx.stroke(); }
         }
         ctx.restore();
 
-        // ציור זמן
         let timeLeft = 60;
         if (hasMoved) timeLeft = 60 - Math.floor((Date.now() - gameStartTime) / 1000);
         ctx.fillStyle = timeLeft <= 10 ? "#cc3300" : "#5a554a"; 
-        ctx.font = "bold 14px 'Courier New'"; ctx.fillText(timeLeft + "s", player.x + 18, player.y - 18);
+        ctx.font = "bold 13px 'Courier New'"; ctx.fillText(timeLeft + "s", player.x + 15, player.y - 15);
     }
 
     function triggerLoss() {
