@@ -6,7 +6,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>NieR Hacking App</title>
+    <title>NieR Hacking - Mobile Edition</title>
     <style>
         body { 
             margin: 0; background: #c8c2b5; overflow: hidden; 
@@ -14,78 +14,105 @@
             cursor: crosshair; user-select: none; -webkit-user-select: none;
         }
         canvas { display: block; }
+        
+        /* שכבת התראה לסיבוב המסך */
+        #orientation-warning {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #050505; color: #fff; z-index: 9999;
+            flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; font-weight: bold; font-size: 24px;
+        }
+        /* CSS Media Query שמפעיל את האזהרה רק אם הגובה גדול מהרוחב (טלפון עומד) */
+        @media screen and (orientation: portrait) {
+            #orientation-warning { display: flex; }
+        }
+
+        /* מסך פתיחה לשחרור האודיו */
+        #start-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(200, 194, 181, 0.95); z-index: 2000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        #start-btn {
+            padding: 20px 50px; background: #222; color: #fff;
+            border: 2px solid #fff; font-size: 28px; font-family: 'Courier New', monospace;
+            font-weight: bold; cursor: pointer; text-transform: uppercase;
+            box-shadow: 0px 0px 15px rgba(0,0,0,0.5);
+        }
+        #start-btn:active { background: #fff; color: #222; }
+
         #ui { 
-            position: absolute; top: 20px; left: 20px; color: #5a554a; 
+            position: absolute; top: 15px; left: 15px; color: #5a554a; 
             font-size: 16px; font-weight: bold; pointer-events: none;
             text-shadow: 1px 1px 0px #fff; z-index: 10;
         }
+        
+        /* ג'ויסטיקים מותאמים לרוחב */
         .joy-area {
-            position: absolute; bottom: 0; width: 50%; height: 50%;
-            display: flex; align-items: center; justify-content: center; z-index: 5;
+            position: absolute; bottom: 0; width: 50%; height: 60%;
+            display: flex; align-items: flex-end; padding-bottom: 20px; z-index: 5;
         }
-        #left-area { left: 0; }
-        #right-area { right: 0; }
+        #left-area { left: 0; justify-content: flex-start; padding-left: 40px; }
+        #right-area { right: 0; justify-content: flex-end; padding-right: 40px; }
         .stick-base {
-            width: 90px; height: 90px; border: 2px solid rgba(90, 85, 74, 0.2);
+            width: 100px; height: 100px; border: 2px solid rgba(90, 85, 74, 0.3);
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
         }
-        .stick-knob { width: 40px; height: 40px; background: rgba(90, 85, 74, 0.4); border-radius: 50%; }
+        .stick-knob { width: 45px; height: 45px; background: rgba(90, 85, 74, 0.5); border-radius: 50%; }
 
-        /* סגנון החלונות הקופצים בסגנון NieR */
+        /* פופאפים של הפסד */
         .nier-popup {
-            position: absolute;
-            background: #dad4c8;
-            color: #4a453a;
-            border: 2px solid #4a453a;
-            padding: 10px 15px;
-            font-family: monospace;
-            font-weight: bold;
-            font-size: 14px;
-            box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
-            z-index: 1000;
-            pointer-events: none;
+            position: absolute; background: #dad4c8; color: #4a453a;
+            border: 2px solid #4a453a; padding: 10px 15px;
+            font-family: monospace; font-weight: bold; font-size: 14px;
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.2); z-index: 1000; pointer-events: none;
         }
         .nier-popup-header {
-            background: #4a453a;
-            color: #dad4c8;
-            padding: 2px 5px;
-            margin: -10px -15px 10px -15px;
-            font-size: 12px;
+            background: #4a453a; color: #dad4c8; padding: 2px 5px;
+            margin: -10px -15px 10px -15px; font-size: 12px;
         }
 
-        /* כפתור הנסה שנית */
+        /* כפתור הנסה שנית המתוקן */
+        #restart-container {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; z-index: 3000;
+            align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.5); /* קצת מחשיך את הרקע כדי שהכפתור יבלוט */
+        }
         #restart-btn {
-            display: none;
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            padding: 15px 40px;
-            background: #4a453a;
-            color: #dad4c8;
-            border: 2px solid #dad4c8;
-            font-size: 24px;
-            font-weight: bold;
-            cursor: pointer;
-            z-index: 1001;
-            font-family: 'Courier New', monospace;
-            box-shadow: 0px 0px 15px rgba(0,0,0,0.5);
+            padding: 15px 40px; background: #4a453a; color: #dad4c8;
+            border: 2px solid #dad4c8; font-size: 24px; font-weight: bold;
+            cursor: pointer; font-family: 'Courier New', monospace;
+            box-shadow: 0px 0px 15px rgba(0,0,0,0.8); pointer-events: auto;
         }
         #restart-btn:active { background: #dad4c8; color: #4a453a; }
     </style>
 </head>
 <body>
+    <div id="orientation-warning">
+        <div>SYSTEM ERROR</div>
+        <div style="font-size: 16px; margin-top: 10px;">Please rotate your device to landscape</div>
+        <div style="font-size: 16px; margin-top: 5px;">אנא סובב את המכשיר לרוחב</div>
+    </div>
+
+    <div id="start-screen">
+        <button id="start-btn">INITIATE HACK</button>
+    </div>
+
     <audio id="bgm" loop><source src="bgm.mp3" type="audio/mpeg"></audio>
 
     <div id="ui">
         [ SYS : HACKING PROTOCOL ]<br>
         [ TARGET CORE: <span id="target-hp">100</span>% ]<br>
-        <span style="font-size: 12px; font-weight: normal;">Touch Left: Move | Touch Right: Aim/Shoot</span>
     </div>
     
     <div id="left-area" class="joy-area"><div class="stick-base"><div class="stick-knob"></div></div></div>
     <div id="right-area" class="joy-area"><div class="stick-base"><div class="stick-knob"></div></div></div>
     
-    <button id="restart-btn" onclick="location.reload()">נסה שנית</button>
+    <div id="restart-container">
+        <button id="restart-btn">נסה שנית</button>
+    </div>
 
     <canvas id="game"></canvas>
 
@@ -93,8 +120,12 @@
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const bgm = document.getElementById('bgm');
+    const startScreen = document.getElementById('start-screen');
+    const startBtn = document.getElementById('start-btn');
+    const restartContainer = document.getElementById('restart-container');
+    const restartBtn = document.getElementById('restart-btn');
     
-    // Web Audio API לסאונד דיגיטלי
+    // Web Audio API
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     const audioCtx = new AudioContext();
 
@@ -141,22 +172,27 @@
     let player = { x: 0, y: 0, size: 15, hp: 3, angle: -Math.PI/2, lastShot: 0, invulnerableUntil: 0 };
     let core = { x: 0, y: 0, size: 25, hp: 15, maxHp: 15, lastShot: 0 };
     let walls = [], bullets = [], enemyBullets = [];
-    let isGameOver = false;
-    let gameStartTime = Date.now();
-    let audioStarted = false;
-    let hasMoved = false; // דגל חסינות התחלתית
+    let isGameOver = true; // המשחק מוקפא עד שלוחצים התחל
+    let gameStartTime = 0;
+    let hasMoved = false;
 
     let touchMoveDir = { x: 0, y: 0 };
     let touchAimDir = { x: 0, y: 0 };
     let lastShootDir = { x: 0, y: -1 };
 
-    function init() {
+    function initGame() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         player.x = canvas.width / 2;
         player.y = canvas.height * 0.85;
         core.x = canvas.width / 2;
         core.y = canvas.height / 4;
+        
+        walls = [];
+        bullets = [];
+        enemyBullets = [];
+        hasMoved = false;
+        isGameOver = false;
         gameStartTime = Date.now();
 
         for(let i=0; i<6; i++) {
@@ -171,30 +207,43 @@
         requestAnimationFrame(loop);
     }
 
-    function tryStartAudio() {
-        if(!audioStarted) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            bgm.volume = 0.4;
-            let playPromise = bgm.play();
-            if (playPromise !== undefined) {
-                playPromise.then(_ => { audioStarted = true; })
-                .catch(error => { audioStarted = true; });
-            }
-        }
-    }
+    // הפעלת המשחק מהכפתור (מסיר חסימות אודיו)
+    startBtn.addEventListener('pointerdown', () => {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        bgm.volume = 0.4;
+        bgm.play().catch(e => console.log("BGM Not Found, continuing with synth SFX"));
+        
+        startScreen.style.display = 'none';
+        initGame();
+    });
 
-    // ניהול מגע (Touch) מותאם לטלפון
+    // כפתור נסה שנית מתוקן
+    restartBtn.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); // מונע קליק כפול בטלפון
+        window.location.reload();
+    });
+
+    window.addEventListener('resize', () => {
+        if(!isGameOver) {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+    });
+
+    // ניהול מגע (Touch) מותאם לטלפון לרוחב
     window.addEventListener('touchstart', (e) => { 
-        tryStartAudio(); 
-        hasMoved = true; // מבטל חסינות ברגע שנוגעים במסך
-        handleTouch(e); 
+        if(!isGameOver) { hasMoved = true; handleTouch(e); }
     }, {passive: false});
-    window.addEventListener('touchmove', handleTouch, {passive: false});
+    
+    window.addEventListener('touchmove', (e) => {
+        if(!isGameOver) { handleTouch(e); }
+    }, {passive: false});
+    
     window.addEventListener('touchend', (e) => {
         let leftActive = false;
         let rightActive = false;
         for(let t of e.touches) {
-            if(t.clientX < canvas.width/2) leftActive = true;
+            if(t.clientX < window.innerWidth/2) leftActive = true;
             else rightActive = true;
         }
         if(!leftActive) touchMoveDir = {x:0, y:0};
@@ -203,9 +252,11 @@
 
     function handleTouch(e) {
         for(let t of e.touches) {
-            let isLeft = t.clientX < canvas.width/2;
-            let centerX = isLeft ? 90 : canvas.width - 90;
-            let centerY = canvas.height - 110;
+            let isLeft = t.clientX < window.innerWidth/2;
+            // חישוב מותאם למיקום הג'ויסטיקים
+            let centerX = isLeft ? 90 : window.innerWidth - 90;
+            let centerY = window.innerHeight - 70; 
+            
             let dx = t.clientX - centerX;
             let dy = t.clientY - centerY;
             let dist = Math.hypot(dx, dy);
@@ -225,13 +276,13 @@
         e.preventDefault();
     }
 
-    // פונקציית הפסד סגנון NieR
     function triggerLoss() {
+        if(isGameOver) return;
         isGameOver = true;
         bgm.pause();
         
         let popupsCount = 0;
-        let maxPopups = 12;
+        let maxPopups = 15; // יותר פופאפים בשביל האפקט
         
         // יצירת חלונות שגיאה קופצים ברצף
         let glitchInterval = setInterval(() => {
@@ -239,8 +290,8 @@
             
             let div = document.createElement('div');
             div.className = 'nier-popup';
-            div.style.left = (10 + Math.random() * 60) + '%';
-            div.style.top = (10 + Math.random() * 70) + '%';
+            div.style.left = (5 + Math.random() * 70) + '%';
+            div.style.top = (5 + Math.random() * 70) + '%';
             div.innerHTML = `
                 <div class="nier-popup-header">WARNING</div>
                 SYSTEM CORRUPTED<br>איבדת נקודת פגיעה
@@ -250,9 +301,21 @@
             popupsCount++;
             if (popupsCount >= maxPopups) {
                 clearInterval(glitchInterval);
-                document.getElementById('restart-btn').style.display = 'block';
+                restartContainer.style.display = 'flex'; // הצגת כפתור החזרה בצורה בטוחה
             }
-        }, 120);
+        }, 100);
+    }
+
+    function triggerWin() {
+        if(isGameOver) return;
+        isGameOver = true;
+        bgm.pause();
+        playSynthSFX('win');
+        
+        setTimeout(() => {
+            alert("המערכת נפרצה בהצלחה"); 
+            restartContainer.style.display = 'flex';
+        }, 800);
     }
 
     function loop(time) {
@@ -273,13 +336,13 @@
         let moveDist = Math.hypot(finalMoveX, finalMoveY);
         if(moveDist > 1) { finalMoveX /= moveDist; finalMoveY /= moveDist; }
 
-        player.x += finalMoveX * 5.0;
-        player.y += finalMoveY * 5.0;
+        player.x += finalMoveX * 4.0; // מהירות מותאמת לנייד
+        player.y += finalMoveY * 4.0;
         player.x = Math.max(20, Math.min(canvas.width-20, player.x));
         player.y = Math.max(20, Math.min(canvas.height-20, player.y));
 
-        if(hasMoved && time - player.lastShot > 100) {
-            bullets.push({ x: player.x, y: player.y, vx: lastShootDir.x * 14, vy: lastShootDir.y * 14 });
+        if(hasMoved && time - player.lastShot > 120) {
+            bullets.push({ x: player.x, y: player.y, vx: lastShootDir.x * 12, vy: lastShootDir.y * 12 });
             player.lastShot = time;
             playSynthSFX('shoot');
         }
@@ -289,8 +352,8 @@
             for(let offset of [-0.15, 0, 0.15]) {
                 enemyBullets.push({ 
                     x: core.x, y: core.y, 
-                    vx: Math.cos(angleToPlayer + offset) * 4, 
-                    vy: Math.sin(angleToPlayer + offset) * 4 
+                    vx: Math.cos(angleToPlayer + offset) * 3.5, 
+                    vy: Math.sin(angleToPlayer + offset) * 3.5 
                 });
             }
             core.lastShot = time;
@@ -340,13 +403,7 @@
                 document.getElementById('target-hp').innerText = Math.max(0, Math.floor((core.hp/core.maxHp)*100));
                 
                 if(core.hp <= 0) { 
-                    isGameOver = true;
-                    bgm.pause(); 
-                    playSynthSFX('win');
-                    setTimeout(() => {
-                        alert("המערכת נפרצה בהצלחה"); 
-                        location.reload(); 
-                    }, 800);
+                    triggerWin();
                 }
             }
 
@@ -361,7 +418,6 @@
             ctx.beginPath(); ctx.arc(eb.x, eb.y, 6, 0, Math.PI*2); ctx.fill();
             ctx.strokeStyle = "#222"; ctx.lineWidth = 2; ctx.stroke();
 
-            // פגיעה בשחקן מתרחשת רק אם הוא זז (hasMoved) וזמן החסינות עבר
             if (hasMoved && time > player.invulnerableUntil && Math.hypot(eb.x - player.x, eb.y - player.y) < player.size + 2) {
                 player.hp -= 1;
                 player.invulnerableUntil = time + 1500;
@@ -369,7 +425,7 @@
                 if (player.hp <= 0) {
                     triggerLoss();
                 } else {
-                    playSynthSFX('hit'); // צליל פגיעה רגיל אם נשארו חיים
+                    playSynthSFX('hit');
                 }
                 enemyBullets.splice(ei, 1);
                 continue;
@@ -429,7 +485,11 @@
         requestAnimationFrame(loop);
     }
 
-    init();
+    // הציור הראשון של הקנבס, כדי שלא יהיה מסך שחור מתחת למסך הפתיחה
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    ctx.fillStyle = "#c8c2b5";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 </script>
 </body>
 </html>
