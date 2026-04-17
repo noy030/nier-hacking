@@ -125,8 +125,8 @@
     <audio id="bgm" loop preload="auto"><source src="bgm.mp3" type="audio/mpeg"></audio>
 
     <div id="top-ui">
-        [ SYS : PROTOCOL v1.05680403e82 ]<br>
-        [ MODE: HACKING ]<br>
+        [ SYS : PROTOCOL v1.05 ]<br>
+        [ MODE: TACTICAL ]<br>
         [ HACKING SUCCESS: <span id="hack-progress">0</span>% ]
     </div>
     
@@ -191,7 +191,6 @@
     }
 
     let player = { x: 0, y: 0, size: 9, hp: 3, angle: -Math.PI/2, lastShot: 0, invulnerableUntil: 0 };
-    // הורדנו את החיים של ה-Core מ-15 ל-7.5
     let core = { x: 0, y: 0, size: 22, hp: 7.5, maxHp: 7.5, lastShot: 0 }; 
     let walls = [], bullets = [], enemyBullets = [];
     
@@ -212,11 +211,20 @@
     }
 
     function initEnvironment() {
+        // מתבצע רק כשלוחצים על התחל, אחרי שהמסך כבר סובב
         resizeCanvas();
+        
+        walls = [];
+        bullets = [];
+        enemyBullets = [];
+        
         player.x = canvas.width / 2;
         player.y = canvas.height * 0.8;
+        player.hp = 3;
+        
         core.x = canvas.width / 2;
         core.y = canvas.height / 4;
+        core.hp = 7.5;
 
         for(let i=0; i<6; i++) {
             let angle = (i/6) * Math.PI * 2;
@@ -234,6 +242,9 @@
     window.addEventListener('resize', resizeCanvas);
 
     document.getElementById('start-btn').addEventListener('click', () => {
+        // עכשיו הקריאה לטעינת המפה מתבצעת כאן!
+        initEnvironment();
+        
         try {
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
@@ -256,7 +267,6 @@
     });
 
     document.getElementById('restart-btn').addEventListener('click', () => {
-        // רענון כפוי שעוקף את הזיכרון
         window.location.reload(true); 
     });
 
@@ -471,7 +481,7 @@
         requestAnimationFrame(loop);
     }
     
-    initEnvironment();
+    // הסרתי מכאן את הקריאה ל-initEnvironment()
 </script>
 </body>
 </html>
