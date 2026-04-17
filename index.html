@@ -394,4 +394,84 @@
             }
         }
 
-        if (time - core.lastShot > 1200) {
+        if (time - core.lastShot > 1200) { 
+            let angleToPlayer = Math.atan2(player.y - core.y, player.x - core.x);
+            for(let offset of [-0.1, 0, 0.1]) {
+                enemyBullets.push({ x: core.x, y: core.y, vx: Math.cos(angleToPlayer + offset) * 3.5, vy: Math.sin(angleToPlayer + offset) * 3.5 });
+            }
+            core.lastShot = time;
+        }
+
+        walls.forEach((w, wi) => {
+            if(w.rotate) {
+                w.angle += w.speed;
+                w.x = core.x + Math.cos(w.angle) * w.dist;
+                w.y = core.y + Math.sin(w.angle) * w.dist;
+            }
+            ctx.fillStyle = "#5a554a";
+            ctx.save(); ctx.translate(w.x, w.y); ctx.rotate(w.angle || 0);
+            ctx.fillRect(-w.size/2, -w.size/2, w.size, w.size);
+            ctx.strokeStyle = "#c8c2b5"; ctx.lineWidth = 1.5; ctx.strokeRect(-w.size/2, -w.size/2, w.size, w.size);
+            ctx.restore();
+        });
+
+        for (let bi = bullets.length - 1; bi >= 0; bi--) {
+            let b = bullets[bi]; b.x += b.vx; b.y += b.vy;
+            ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI*2); ctx.fill();
+            let hit = false;
+            for (let wi = walls.length - 1; wi >= 0; wi--) {
+                let w = walls[wi];
+                if(Math.hypot(b.x - w.x, b.y - w.y) < w.size/2 + 3) { w.hp--; hit = true; playSynthSFX('hit'); if(w.hp <= 0) walls.splice(wi, 1); break; }
+            }
+            if (!hit && Math.hypot(b.x - core.x, b.y - core.y) < core.size) {
+                core.hp -= 0.2; hit = true; playSynthSFX('hit');
+                
+                let hackPercent = Math.min(100, Math.max(0, Math.floor((1 - core.hp/core.maxHp) * 100)));
+                progressText.innerText = hackPercent;
+                
+                if(core.hp <= 0) { 
+                    isGameOver = true; if(bgm) bgm.pause(); playSynthSFX('win'); 
+                    setTimeout(() => { 
+                        alert("המערכת נפרצה בהצלחה!\n\nקיבלת קוד 1234 לפתיחת התיבה"); 
+                        location.reload(true); 
+                    }, 800); 
+                }
+            }
+            if (hit || b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(bi, 1);
+        }
+
+        for (let ei = enemyBullets.length - 1; ei >= 0; ei--) {
+            let eb = enemyBullets[ei]; eb.x += eb.vx; eb.y += eb.vy;
+            ctx.fillStyle = "#ff3366"; ctx.beginPath(); ctx.arc(eb.x, eb.y, 4, 0, Math.PI*2); ctx.fill();
+            
+            if (hasMoved && time > player.invulnerableUntil && Math.hypot(eb.x - player.x, eb.y - player.y) < player.size + 2) {
+                player.hp -= 1; player.invulnerableUntil = time + 1500;
+                if (player.hp <= 0) triggerLoss(); else playSynthSFX('hit');
+                enemyBullets.splice(ei, 1); continue;
+            }
+            if (eb.x < 0 || eb.x > canvas.width || eb.y < 0 || eb.y > canvas.height) enemyBullets.splice(ei, 1);
+        }
+
+        ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(core.x, core.y, core.size, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
+        ctx.fillStyle = timeLeft <= 10 ? "#cc3300" : "#5a554a"; 
+        ctx.font = "bold 14px 'Courier New'"; ctx.fillText(timeLeft + "s", player.x + 18, player.y - 18);
+
+        ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.angle + Math.PI/2);
+        
+        let isBlinking = (!hasMoved && Math.floor(time / 300) % 2 === 0) || (hasMoved && time < player.invulnerableUntil && Math.floor(time / 100) % 2 === 0);
+        
+        if (!isBlinking) {
+            ctx.fillStyle = "#111"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
+            if (player.hp >= 1) { ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-4, 5); ctx.lineTo(4, 5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+            if (player.hp >= 2) { ctx.beginPath(); ctx.moveTo(3, -2); ctx.lineTo(9, 7); ctx.lineTo(4, 5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+            if (player.hp >= 3) { ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(-9, 7); ctx.lineTo(-4, 5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+        }
+        ctx.restore();
+        requestAnimationFrame(loop);
+    }
+    
+    initEnvironment();
+</script>
+</body>
+</html>
