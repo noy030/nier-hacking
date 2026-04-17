@@ -25,7 +25,6 @@
             #orientation-warning { display: flex; }
         }
 
-        /* מסך הפתיחה */
         #start-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #c8c2b5; z-index: 2000;
@@ -43,7 +42,6 @@
             background: #5a554a;
         }
 
-        /* ממשק עליון NieR */
         #top-ui { 
             position: absolute; top: 15px; left: 15px; color: #4a453a; 
             font-size: 14px; font-weight: bold; pointer-events: none;
@@ -70,27 +68,22 @@
             will-change: transform; 
         }
 
+        /* העיצוב המקורי של הודעות השגיאה */
         .nier-popup {
             position: absolute; background: #dad4c8; color: #4a453a;
             border: 2px solid #4a453a; padding: 10px 15px;
-            font-family: 'Courier New', monospace; font-weight: bold; font-size: 14px;
+            font-family: monospace; font-weight: bold; font-size: 14px;
             box-shadow: 4px 4px 0px rgba(0,0,0,0.2); z-index: 1000; pointer-events: none;
-            animation: glitch-anim 0.2s ease-out;
         }
         .nier-popup-header {
-            background: #990000; color: #dad4c8; padding: 2px 5px;
+            background: #4a453a; color: #dad4c8; padding: 2px 5px;
             margin: -10px -15px 10px -15px; font-size: 12px;
-        }
-
-        @keyframes glitch-anim {
-            0% { transform: translate(-5px, 5px); opacity: 0; }
-            50% { transform: translate(2px, -2px); opacity: 0.8; }
-            100% { transform: translate(0, 0); opacity: 1; }
         }
 
         #restart-container {
             display: none; position: fixed; top: 0; left: 0;
             width: 100%; height: 100%; z-index: 3000;
+            flex-direction: column; /* מסדר את הכפתור והטקסט בטור */
             align-items: center; justify-content: center;
             background: rgba(0,0,0,0.6);
             backdrop-filter: blur(2px);
@@ -101,6 +94,12 @@
             cursor: pointer; font-family: 'Courier New', monospace;
             box-shadow: 0px 0px 15px rgba(0,0,0,0.5); pointer-events: auto;
             opacity: 0; animation: fade-in 0.5s forwards;
+        }
+        #loss-text {
+            margin-top: 20px; color: #dad4c8; font-size: 20px;
+            font-weight: bold; font-family: 'Courier New', monospace;
+            text-shadow: 0px 0px 10px rgba(0,0,0,0.8);
+            opacity: 0; animation: fade-in 0.5s forwards; animation-delay: 0.2s;
         }
         
         @keyframes fade-in {
@@ -132,6 +131,7 @@
     
     <div id="restart-container">
         <button id="restart-btn">נסה שנית</button>
+        <div id="loss-text">איבדת נקודת פגיעה</div>
     </div>
 
     <canvas id="game"></canvas>
@@ -142,7 +142,6 @@
     const bgm = document.getElementById('bgm');
     const startScreen = document.getElementById('start-screen');
     const restartContainer = document.getElementById('restart-container');
-    const restartBtn = document.getElementById('restart-btn');
     const leftKnob = document.getElementById('left-knob');
     const rightKnob = document.getElementById('right-knob');
     const progressText = document.getElementById('hack-progress');
@@ -229,7 +228,6 @@
 
     window.addEventListener('resize', resizeCanvas);
 
-    // חסינות מלאה מפני תקלות טעינת קובץ אודיו
     document.getElementById('start-btn').addEventListener('click', () => {
         try {
             if (audioCtx.state === 'suspended') {
@@ -253,7 +251,6 @@
     });
 
     document.getElementById('restart-btn').addEventListener('click', () => {
-        // מונע מה-Cache לטעון את המשחק מחדש בצורה שגויה
         window.location.reload(true); 
     });
 
@@ -353,9 +350,9 @@
             playSynthSFX('glitch');
             let div = document.createElement('div');
             div.className = 'nier-popup';
-            div.style.left = (15 + Math.random() * 50) + '%';
-            div.style.top = (20 + Math.random() * 40) + '%';
-            div.innerHTML = `<div class="nier-popup-header">WARNING</div>איבדת נקודת פגיעה`;
+            div.style.left = (10 + Math.random() * 60) + '%';
+            div.style.top = (10 + Math.random() * 60) + '%';
+            div.innerHTML = `<div class="nier-popup-header">WARNING</div>SYSTEM CORRUPTED<br>איבדת נקודת פגיעה`;
             document.body.appendChild(div);
             popupsCount++;
             
