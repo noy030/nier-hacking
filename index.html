@@ -25,7 +25,7 @@
             #orientation-warning { display: flex; }
         }
 
-        /* מסך הפתיחה לאישור המוזיקה */
+        /* מסך הפתיחה */
         #start-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #c8c2b5; z-index: 2000;
@@ -43,7 +43,7 @@
             background: #5a554a;
         }
 
-        /* ממשק עליון חדש */
+        /* ממשק עליון NieR */
         #top-ui { 
             position: absolute; top: 15px; left: 15px; color: #4a453a; 
             font-size: 14px; font-weight: bold; pointer-events: none;
@@ -187,7 +187,6 @@
         }
     }
 
-    // הגדלנו את רדיוס הליבה ל-22
     let player = { x: 0, y: 0, size: 9, hp: 3, angle: -Math.PI/2, lastShot: 0, invulnerableUntil: 0 };
     let core = { x: 0, y: 0, size: 22, hp: 15, maxHp: 15, lastShot: 0 }; 
     let walls = [], bullets = [], enemyBullets = [];
@@ -230,13 +229,22 @@
 
     window.addEventListener('resize', resizeCanvas);
 
+    // חסינות מלאה מפני תקלות טעינת קובץ אודיו
     document.getElementById('start-btn').addEventListener('click', () => {
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        
-        // הבטחת טעינה וניגון
-        bgm.load();
-        bgm.volume = 0.8;
-        bgm.play().catch(e => console.log("BGM file missing"));
+        try {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            if (bgm) {
+                bgm.volume = 0.8;
+                let playPromise = bgm.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(e => console.log("BGM check: File not found, continuing without music."));
+                }
+            }
+        } catch(err) {
+            console.log("Audio exception:", err);
+        }
         
         startScreen.style.display = 'none';
         isGameActive = true;
@@ -245,7 +253,8 @@
     });
 
     document.getElementById('restart-btn').addEventListener('click', () => {
-        window.location.reload();
+        // מונע מה-Cache לטעון את המשחק מחדש בצורה שגויה
+        window.location.reload(true); 
     });
 
     function updateKnob(knob, dx, dy) {
@@ -337,10 +346,9 @@
     function triggerLoss() {
         if(isGameOver) return;
         isGameOver = true;
-        bgm.pause();
+        if(bgm) bgm.pause();
         
         let popupsCount = 0;
-        // מציג הודעות גליץ' ברצף
         let glitchInterval = setInterval(() => {
             playSynthSFX('glitch');
             let div = document.createElement('div');
@@ -351,12 +359,11 @@
             document.body.appendChild(div);
             popupsCount++;
             
-            // רק אחרי ש-8 הודעות קופצות, עוצרים את האינטרוול ומציגים את כפתור "נסה שנית"
             if (popupsCount >= 8) { 
                 clearInterval(glitchInterval); 
                 setTimeout(() => {
                     restartContainer.style.display = 'flex'; 
-                }, 600); // השהייה קטנה לפני שהמסך והכפתור מופיעים
+                }, 600); 
             }
         }, 150);
     }
@@ -371,7 +378,6 @@
         }
         if (timeLeft <= 0) { triggerLoss(); return; }
 
-        // מהירות מופחתת ותנועה חלקה יותר (2.8 במקום 4.5)
         player.x += touchMoveDir.x * 2.8;
         player.y += touchMoveDir.y * 2.8;
         player.x = Math.max(15, Math.min(canvas.width-15, player.x));
@@ -417,15 +423,14 @@
             if (!hit && Math.hypot(b.x - core.x, b.y - core.y) < core.size) {
                 core.hp -= 0.2; hit = true; playSynthSFX('hit');
                 
-                // חישוב והצגת אחוז ההתקדמות (0 עד 100)
                 let hackPercent = Math.min(100, Math.max(0, Math.floor((1 - core.hp/core.maxHp) * 100)));
                 progressText.innerText = hackPercent;
                 
                 if(core.hp <= 0) { 
-                    isGameOver = true; bgm.pause(); playSynthSFX('win'); 
+                    isGameOver = true; if(bgm) bgm.pause(); playSynthSFX('win'); 
                     setTimeout(() => { 
                         alert("המערכת נפרצה בהצלחה!\n\nקיבלת קוד 1234 לפתיחת התיבה"); 
-                        location.reload(); 
+                        location.reload(true); 
                     }, 800); 
                 }
             }
