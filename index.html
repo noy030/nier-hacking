@@ -6,7 +6,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>NieR Hacking - Tactical Start</title>
+    <title>NieR Hacking - Tactical Protocol</title>
     <style>
         body { 
             margin: 0; background: #c8c2b5; overflow: hidden; 
@@ -17,7 +17,7 @@
         
         #orientation-warning {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #050505; color: #fff; z-index: 9999;
+            background: #050505; color: #fff; z-index: 99999;
             flex-direction: column; align-items: center; justify-content: center;
             text-align: center; font-weight: bold; font-size: 24px;
         }
@@ -25,18 +25,19 @@
             #orientation-warning { display: flex; }
         }
 
-        /* מסך הפתיחה לאישור המוזיקה */
+        /* מסך הפתיחה לאישור המוזיקה - עם שקיפות כדי לראות את הזירה תחתיו */
         #start-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #c8c2b5; z-index: 2000;
+            background: rgba(200, 194, 181, 0.85); z-index: 50000;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         #start-btn {
             padding: 20px 60px; background: #4a453a; color: #c8c2b5;
             border: 3px solid #4a453a; font-size: 32px; font-family: 'Courier New', monospace;
             font-weight: bold; cursor: pointer; letter-spacing: 2px;
-            box-shadow: 0px 10px 20px rgba(0,0,0,0.2);
+            box-shadow: 0px 10px 20px rgba(0,0,0,0.3); pointer-events: auto;
         }
+        #start-btn:active { background: #c8c2b5; color: #4a453a; }
 
         #ui { 
             position: absolute; top: 15px; left: 15px; color: #5a554a; 
@@ -159,13 +160,16 @@
     let core = { x: 0, y: 0, size: 14, hp: 15, maxHp: 15, lastShot: 0 }; 
     let walls = [], bullets = [], enemyBullets = [];
     
-    let isGameActive = false; // האם לחצו "התחל"
-    let isGameOver = false;   // האם המשחק נגמר
-    let hasMoved = false;     // האם השחקן התחיל לפעול
+    let isGameActive = false;
+    let isGameOver = false;  
+    let hasMoved = false;     
     let gameStartTime = 0;
 
+    // קלטים
+    let keys = { w: false, a: false, s: false, d: false, up: false, down: false, left: false, right: false };
     let touchMoveDir = { x: 0, y: 0 };
     let touchAimDir = { x: 0, y: 0 };
+    let mouseAimDir = null;
     let lastShootDir = { x: 0, y: -1 };
 
     function initEnvironment() {
@@ -176,6 +180,7 @@
         core.x = canvas.width / 2;
         core.y = canvas.height / 4;
 
+        walls = [];
         for(let i=0; i<6; i++) {
             let angle = (i/6) * Math.PI * 2;
             walls.push({ x: core.x + Math.cos(angle)*38, y: core.y + Math.sin(angle)*38, hp: 4, size: 14 });
@@ -185,11 +190,27 @@
             walls.push({ x: 0, y: 0, angle: angle, dist: 65, hp: 3, size: 10, rotate: true, speed: 0.015 });
         }
         
+        // ציור ראשוני לפני התחלת המשחק (כדי שהרקע לא יהיה אפור ריק)
         ctx.fillStyle = "#c8c2b5";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // ציור הליבה
+        ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(core.x, core.y, core.size, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
+        
+        // ציור השחקן
+        ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.angle + Math.PI/2);
+        ctx.fillStyle = "#111"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-4, 5); ctx.lineTo(4, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(3, -2); ctx.lineTo(9, 7); ctx.lineTo(4, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-3, -2); ctx.lineTo(-9, 7); ctx.lineTo(-4, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.restore();
     }
 
-    // הפעלת המשחק ושחרור האודיו בלחיצה על כפתור ההתחלה
+    window.addEventListener('resize', () => {
+        if (!isGameActive) initEnvironment();
+    });
+
     document.getElementById('start-btn').addEventListener('pointerdown', () => {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         bgm.volume = 0.8;
@@ -205,16 +226,16 @@
         window.location.reload();
     });
 
+    // --- מאזינים למגע בטלפון ---
     window.addEventListener('touchstart', (e) => { 
         if(isGameActive && !isGameOver) { 
-            if (!hasMoved) { hasMoved = true; gameStartTime = Date.now(); } // ספירת הטיימר מתחילה רק עכשיו
+            if (!hasMoved) { hasMoved = true; gameStartTime = Date.now(); }
             handleTouch(e); 
         }
     }, {passive: false});
     window.addEventListener('touchmove', (e) => { if(isGameActive && !isGameOver) handleTouch(e); }, {passive: false});
     window.addEventListener('touchend', (e) => {
-        let leftActive = false;
-        let rightActive = false;
+        let leftActive = false; let rightActive = false;
         for(let t of e.touches) {
             if(t.clientX < window.innerWidth/2) leftActive = true;
             else rightActive = true;
@@ -247,6 +268,31 @@
         e.preventDefault();
     }
 
+    // --- מאזינים למקלדת ועכבר (לבדיקה נוחה במחשב) ---
+    window.addEventListener('keydown', (e) => {
+        if(!isGameActive) return;
+        if (!hasMoved) { hasMoved = true; gameStartTime = Date.now(); }
+        if(e.code === 'KeyW') keys.w = true; if(e.code === 'KeyS') keys.s = true;
+        if(e.code === 'KeyA') keys.a = true; if(e.code === 'KeyD') keys.d = true;
+        if(e.code === 'ArrowUp') keys.up = true; if(e.code === 'ArrowDown') keys.down = true;
+        if(e.code === 'ArrowLeft') keys.left = true; if(e.code === 'ArrowRight') keys.right = true;
+    });
+    window.addEventListener('keyup', (e) => {
+        if(e.code === 'KeyW') keys.w = false; if(e.code === 'KeyS') keys.s = false;
+        if(e.code === 'KeyA') keys.a = false; if(e.code === 'KeyD') keys.d = false;
+        if(e.code === 'ArrowUp') keys.up = false; if(e.code === 'ArrowDown') keys.down = false;
+        if(e.code === 'ArrowLeft') keys.left = false; if(e.code === 'ArrowRight') keys.right = false;
+    });
+    window.addEventListener('mousemove', (e) => {
+        if(isGameActive && !isGameOver && keys.w || keys.a || keys.s || keys.d) {
+            let dx = e.clientX - player.x;
+            let dy = e.clientY - player.y;
+            if (Math.hypot(dx, dy) > 10) {
+                mouseAimDir = { x: dx, y: dy };
+            }
+        }
+    });
+
     function triggerLoss() {
         if(isGameOver) return;
         isGameOver = true;
@@ -269,17 +315,41 @@
         if(!isGameActive || isGameOver) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // חישוב הזמן (נשאר על 60 עד ש-hasMoved משתנה ל-true)
         let timeLeft = 60;
         if (hasMoved) {
             timeLeft = 60 - Math.floor((Date.now() - gameStartTime) / 1000);
         }
         if (timeLeft <= 0) { triggerLoss(); return; }
 
-        player.x += touchMoveDir.x * 4.5;
-        player.y += touchMoveDir.y * 4.5;
+        // חישוב תנועה משולב מגע ומקלדת
+        let kbMoveX = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
+        let kbMoveY = (keys.s ? 1 : 0) - (keys.w ? 1 : 0);
+        let finalMoveX = touchMoveDir.x || kbMoveX;
+        let finalMoveY = touchMoveDir.y || kbMoveY;
+        
+        let moveDist = Math.hypot(finalMoveX, finalMoveY);
+        if(moveDist > 1) { finalMoveX /= moveDist; finalMoveY /= moveDist; }
+
+        player.x += finalMoveX * 4.5;
+        player.y += finalMoveY * 4.5;
         player.x = Math.max(15, Math.min(canvas.width-15, player.x));
         player.y = Math.max(15, Math.min(canvas.height-15, player.y));
+
+        // חישוב כיוון ירי משולב
+        let kbAimX = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+        let kbAimY = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
+        
+        if (kbAimX !== 0 || kbAimY !== 0) {
+            let aimDist = Math.hypot(kbAimX, kbAimY);
+            lastShootDir = { x: kbAimX / aimDist, y: kbAimY / aimDist };
+            player.angle = Math.atan2(lastShootDir.y, lastShootDir.x);
+        } else if (mouseAimDir) {
+            let aimDist = Math.hypot(mouseAimDir.x, mouseAimDir.y);
+            lastShootDir = { x: mouseAimDir.x / aimDist, y: mouseAimDir.y / aimDist };
+            player.angle = Math.atan2(lastShootDir.y, lastShootDir.x);
+        } else if (touchAimDir.x !== 0 || touchAimDir.y !== 0) {
+            lastShootDir = touchAimDir;
+        }
 
         if(hasMoved && time - player.lastShot > 110) {
             bullets.push({ x: player.x, y: player.y, vx: lastShootDir.x * 12, vy: lastShootDir.y * 12 });
@@ -328,7 +398,6 @@
             let eb = enemyBullets[ei]; eb.x += eb.vx; eb.y += eb.vy;
             ctx.fillStyle = "#ff3366"; ctx.beginPath(); ctx.arc(eb.x, eb.y, 4, 0, Math.PI*2); ctx.fill();
             
-            // בדיקת פגיעה: דורש שהשחקן זז + זמן החסינות עבר + התנגשות פגיעה
             if (hasMoved && time > player.invulnerableUntil && Math.hypot(eb.x - player.x, eb.y - player.y) < player.size + 2) {
                 player.hp -= 1; player.invulnerableUntil = time + 1500;
                 if (player.hp <= 0) triggerLoss(); else playSynthSFX('hit');
@@ -344,7 +413,6 @@
 
         ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.angle + Math.PI/2);
         
-        // מהבהב בעדינות אם לא זזת עדיין, או מהבהב אם חטפת פגיעה
         let isBlinking = (!hasMoved && Math.floor(time / 300) % 2 === 0) || (hasMoved && time < player.invulnerableUntil && Math.floor(time / 100) % 2 === 0);
         
         if (!isBlinking) {
@@ -357,7 +425,6 @@
         requestAnimationFrame(loop);
     }
     
-    // ציור ראשוני לסביבה לפני שלוחצים התחל
     initEnvironment();
 </script>
 </body>
