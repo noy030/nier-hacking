@@ -11,7 +11,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>NieR Hacking - Tactical Start</title>
+    <title>NieR Hacking - Tactical Interface</title>
     <style>
         body { 
             margin: 0; background: #c8c2b5; overflow: hidden; 
@@ -20,6 +20,7 @@
         }
         canvas { display: block; }
         
+        /* אזהרת סיבוב מסך */
         #orientation-warning {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #050505; color: #fff; z-index: 9999;
@@ -30,6 +31,7 @@
             #orientation-warning { display: flex; }
         }
 
+        /* מסך פתיחה */
         #start-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #c8c2b5; z-index: 2000;
@@ -42,17 +44,14 @@
             box-shadow: 0px 10px 20px rgba(0,0,0,0.2);
             transition: transform 0.1s, background 0.2s;
         }
-        #start-btn:active {
-            transform: scale(0.95);
-            background: #5a554a;
-        }
+        #start-btn:active { transform: scale(0.95); background: #5a554a; }
 
+        /* ממשק משחק */
         #top-ui { 
             position: absolute; top: 15px; left: 15px; color: #4a453a; 
             font-size: 14px; font-weight: bold; pointer-events: none;
             text-shadow: 1px 1px 0px #fff; z-index: 10;
-            line-height: 1.5;
-            background: rgba(200, 194, 181, 0.7);
+            line-height: 1.5; background: rgba(200, 194, 181, 0.7);
             padding: 5px 10px; border-left: 4px solid #4a453a;
         }
         
@@ -69,10 +68,10 @@
         }
         .stick-knob { 
             width: 50px; height: 50px; background: rgba(90, 85, 74, 0.8); 
-            border-radius: 50%; position: absolute;
-            will-change: transform; 
+            border-radius: 50%; position: absolute; will-change: transform; 
         }
 
+        /* פופאפים של נזק/גליץ' */
         .nier-popup {
             position: absolute; background: #dad4c8; color: #4a453a;
             border: 2px solid #4a453a; padding: 10px 15px;
@@ -84,13 +83,12 @@
             margin: -10px -15px 10px -15px; font-size: 12px;
         }
 
+        /* מסך הפסד */
         #restart-container {
             display: none; position: fixed; top: 0; left: 0;
             width: 100%; height: 100%; z-index: 3000;
-            flex-direction: column;
-            align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(2px);
+            flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(2px);
         }
         #restart-btn {
             padding: 15px 40px; background: #4a453a; color: #dad4c8;
@@ -99,15 +97,42 @@
             box-shadow: 0px 0px 15px rgba(0,0,0,0.5); pointer-events: auto;
             opacity: 0; animation: fade-in 0.5s forwards;
         }
-        #loss-text {
-            margin-top: 20px; color: #dad4c8; font-size: 20px;
-            font-weight: bold; font-family: 'Courier New', monospace;
-            text-shadow: 0px 0px 10px rgba(0,0,0,0.8);
-            opacity: 0; animation: fade-in 0.5s forwards; animation-delay: 0.2s;
+
+        /* מסך ניצחון מעוצב (החדש!) */
+        #win-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(200, 194, 181, 0.9); z-index: 4000;
+            display: none; align-items: center; justify-content: center;
+            backdrop-filter: blur(4px);
         }
-        
-        @keyframes fade-in {
-            to { opacity: 1; }
+        .nier-win-box {
+            border: 2px solid #4a453a; background: #dad4c8;
+            padding: 40px; width: 80%; max-width: 400px; text-align: center;
+            box-shadow: 10px 10px 0px #4a453a;
+            animation: slide-up 0.4s ease-out;
+        }
+        .win-header {
+            background: #4a453a; color: #dad4c8;
+            margin: -40px -40px 30px -40px; padding: 10px;
+            font-weight: bold; letter-spacing: 2px; font-size: 18px;
+        }
+        .code-display {
+            font-size: 36px; margin: 25px 0; padding: 15px;
+            border: 2px dashed #4a453a; color: #4a453a; font-weight: bold;
+            background: rgba(255,255,255,0.3);
+        }
+        .win-content p { color: #4a453a; font-weight: bold; margin: 0; }
+        #continue-btn {
+            background: none; border: 2px solid #4a453a; color: #4a453a;
+            padding: 10px 30px; cursor: pointer; font-family: inherit; 
+            font-weight: bold; font-size: 16px; transition: all 0.2s;
+        }
+        #continue-btn:hover { background: #4a453a; color: #dad4c8; }
+
+        @keyframes fade-in { to { opacity: 1; } }
+        @keyframes slide-up {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
     </style>
 </head>
@@ -127,6 +152,7 @@
     <div id="top-ui">
         [ SYS : PROTOCOL v1.058785634e0382 ]<br>
         [ MODE: HACKING ]<br>
+        [ BOX IDENTIFIER: <span id="box-id-ui">0</span> ]<br>
         [ HACKING SUCCESS: <span id="hack-progress">0</span>% ]
     </div>
     
@@ -135,17 +161,44 @@
     
     <div id="restart-container">
         <button id="restart-btn">נסה שנית</button>
-        <div id="loss-text">איבדת נקודת פגיעה</div>
+        <div style="margin-top:20px; color:#fff; font-weight:bold;">SYSTEM CORRUPTED</div>
+    </div>
+
+    <div id="win-container">
+        <div class="nier-win-box">
+            <div class="win-header">SYSTEM STATUS: SUCCESS</div>
+            <div class="win-content">
+                <p>DATA DECRYPTION COMPLETE</p>
+                <div class="code-display" id="unlock-code">----</div>
+                <p style="font-size: 12px; margin-bottom: 20px;">ACCESS GRANTED TO PHYSICAL STORAGE</p>
+            </div>
+            <button id="continue-btn" onclick="location.reload()">RETURN TO SYSTEM</button>
+        </div>
     </div>
 
     <canvas id="game"></canvas>
 
 <script>
+    // --- הגדרות תיבות (כאן את מוסיפה עוד שלבים) ---
+    const BOX_CONFIGS = {
+        '1': { code: '1234', coreHp: 7.5, walls: 6, time: 60, title: 'ALPHA' },
+        '2': { code: '5582', coreHp: 12, walls: 8, time: 45, title: 'BETA' },
+        '3': { code: '9012', coreHp: 20, walls: 12, time: 35, title: 'GAMMA' }
+    };
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const boxId = urlParams.get('box') || '1';
+    const config = BOX_CONFIGS[boxId] || BOX_CONFIGS['1'];
+
+    document.getElementById('box-id-ui').innerText = config.title;
+
+    // --- אתחול משתנים ---
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
     const bgm = document.getElementById('bgm');
     const startScreen = document.getElementById('start-screen');
     const restartContainer = document.getElementById('restart-container');
+    const winContainer = document.getElementById('win-container');
     const leftKnob = document.getElementById('left-knob');
     const rightKnob = document.getElementById('right-knob');
     const progressText = document.getElementById('hack-progress');
@@ -157,277 +210,154 @@
         if (audioCtx.state === 'suspended') return;
         const osc = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
-        osc.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
+        osc.connect(gainNode); gainNode.connect(audioCtx.destination);
         const now = audioCtx.currentTime;
 
         if (type === 'shoot') {
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(800, now);
+            osc.type = 'square'; osc.frequency.setValueAtTime(800, now);
             osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
             gainNode.gain.setValueAtTime(0.015, now);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
             osc.start(now); osc.stop(now + 0.1);
         } else if (type === 'hit') {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(150, now);
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now);
             gainNode.gain.setValueAtTime(0.08, now);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
             osc.start(now); osc.stop(now + 0.1);
         } else if (type === 'glitch') {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(200 + Math.random()*400, now);
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200 + Math.random()*400, now);
             gainNode.gain.setValueAtTime(0.05, now);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
             osc.start(now); osc.stop(now + 0.1);
         } else if (type === 'win') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(500, now);
+            osc.type = 'sine'; osc.frequency.setValueAtTime(500, now);
             osc.frequency.linearRampToValueAtTime(1000, now + 0.5);
             gainNode.gain.setValueAtTime(0.1, now);
-            gainNode.gain.linearRampToValueAtTime(0, now + 0.5);
             osc.start(now); osc.stop(now + 0.5);
         }
     }
 
     let player = { x: 0, y: 0, size: 9, hp: 3, angle: -Math.PI/2, lastShot: 0, invulnerableUntil: 0 };
-    let core = { x: 0, y: 0, size: 22, hp: 7.5, maxHp: 7.5, lastShot: 0 }; 
+    let core = { x: 0, y: 0, size: 22, hp: config.coreHp, maxHp: config.coreHp, lastShot: 0 }; 
     let walls = [], bullets = [], enemyBullets = [];
     
-    let isGameActive = false; 
-    let isGameOver = false;   
-    let hasMoved = false;     
-    let gameStartTime = 0;
-
-    let touchMoveDir = { x: 0, y: 0 };
-    let touchAimDir = { x: 0, y: 0 };
-    let lastShootDir = { x: 0, y: -1 };
-    
+    let isGameActive = false, isGameOver = false, hasMoved = false, gameStartTime = 0;
+    let touchMoveDir = { x: 0, y: 0 }, touchAimDir = { x: 0, y: 0 }, lastShootDir = { x: 0, y: -1 };
     const MAX_JOY_DIST = 45;
 
     function resizeCanvas() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
     }
 
     function initEnvironment() {
-        // מתבצע רק כשלוחצים על התחל, אחרי שהמסך כבר סובב
         resizeCanvas();
-        
-        walls = [];
-        bullets = [];
-        enemyBullets = [];
-        
-        player.x = canvas.width / 2;
-        player.y = canvas.height * 0.8;
-        player.hp = 3;
-        
-        core.x = canvas.width / 2;
-        core.y = canvas.height / 4;
-        core.hp = 7.5;
+        walls = []; bullets = []; enemyBullets = [];
+        player.x = canvas.width / 2; player.y = canvas.height * 0.8; player.hp = 3;
+        core.x = canvas.width / 2; core.y = canvas.height / 4; core.hp = config.coreHp;
 
-        for(let i=0; i<6; i++) {
-            let angle = (i/6) * Math.PI * 2;
+        for(let i=0; i<config.walls; i++) {
+            let angle = (i/config.walls) * Math.PI * 2;
             walls.push({ x: core.x + Math.cos(angle)*45, y: core.y + Math.sin(angle)*45, hp: 4, size: 14 });
         }
         for(let i=0; i<8; i++) {
             let angle = (i/8) * Math.PI * 2;
             walls.push({ x: 0, y: 0, angle: angle, dist: 75, hp: 3, size: 10, rotate: true, speed: 0.015 });
         }
-        
-        ctx.fillStyle = "#c8c2b5";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     window.addEventListener('resize', resizeCanvas);
 
     document.getElementById('start-btn').addEventListener('click', () => {
-        // עכשיו הקריאה לטעינת המפה מתבצעת כאן!
         initEnvironment();
-        
-        try {
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
-            if (bgm) {
-                bgm.volume = 0.8;
-                let playPromise = bgm.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(e => console.log("BGM check: File not found, continuing without music."));
-                }
-            }
-        } catch(err) {
-            console.log("Audio exception:", err);
-        }
-        
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (bgm) { bgm.volume = 0.8; bgm.play().catch(() => {}); }
         startScreen.style.display = 'none';
         isGameActive = true;
-        
         requestAnimationFrame(loop);
     });
 
-    document.getElementById('restart-btn').addEventListener('click', () => {
-        window.location.reload(true); 
-    });
-
-    function updateKnob(knob, dx, dy) {
-        knob.style.transform = `translate(${dx}px, ${dy}px)`;
-    }
-
-    function resetLeftStick() {
-        touchMoveDir = { x: 0, y: 0 };
-        updateKnob(leftKnob, 0, 0);
-    }
-
-    function resetRightStick() {
-        touchAimDir = { x: 0, y: 0 };
-        updateKnob(rightKnob, 0, 0);
-    }
+    document.getElementById('restart-btn').addEventListener('click', () => { location.reload(); });
 
     function handleTouches(e) {
-        let leftActive = false;
-        let rightActive = false;
-
+        let leftActive = false, rightActive = false;
         for(let t of e.touches) {
             let isLeft = t.clientX < window.innerWidth / 2;
-            
             if (isLeft) {
                 leftActive = true;
-                let centerX = 105;
-                let centerY = window.innerHeight - 85; 
-                let dx = t.clientX - centerX;
-                let dy = t.clientY - centerY;
-                let dist = Math.hypot(dx, dy);
-                let angle = Math.atan2(dy, dx);
-
+                let dx = t.clientX - 105, dy = t.clientY - (window.innerHeight - 85);
+                let dist = Math.hypot(dx, dy), angle = Math.atan2(dy, dx);
                 let displayDist = Math.min(dist, MAX_JOY_DIST);
-                updateKnob(leftKnob, Math.cos(angle) * displayDist, Math.sin(angle) * displayDist);
-
-                if (dist > 5) {
-                    let power = Math.min(dist / MAX_JOY_DIST, 1);
-                    touchMoveDir = { x: Math.cos(angle) * power, y: Math.sin(angle) * power };
-                } else {
-                    touchMoveDir = { x: 0, y: 0 };
-                }
+                leftKnob.style.transform = `translate(${Math.cos(angle)*displayDist}px, ${Math.sin(angle)*displayDist}px)`;
+                touchMoveDir = dist > 5 ? { x: Math.cos(angle) * Math.min(dist/MAX_JOY_DIST,1), y: Math.sin(angle) * Math.min(dist/MAX_JOY_DIST,1) } : { x: 0, y: 0 };
             } else {
                 rightActive = true;
-                let centerX = window.innerWidth - 105;
-                let centerY = window.innerHeight - 85; 
-                let dx = t.clientX - centerX;
-                let dy = t.clientY - centerY;
-                let dist = Math.hypot(dx, dy);
-                let angle = Math.atan2(dy, dx);
-
+                let dx = t.clientX - (window.innerWidth - 105), dy = t.clientY - (window.innerHeight - 85);
+                let dist = Math.hypot(dx, dy), angle = Math.atan2(dy, dx);
                 let displayDist = Math.min(dist, MAX_JOY_DIST);
-                updateKnob(rightKnob, Math.cos(angle) * displayDist, Math.sin(angle) * displayDist);
-
-                if (dist > 10) { 
-                    touchAimDir = { x: Math.cos(angle), y: Math.sin(angle) };
-                    lastShootDir = touchAimDir;
-                    player.angle = angle;
-                } else {
-                    touchAimDir = { x: 0, y: 0 };
-                }
+                rightKnob.style.transform = `translate(${Math.cos(angle)*displayDist}px, ${Math.sin(angle)*displayDist}px)`;
+                if (dist > 10) { touchAimDir = { x: Math.cos(angle), y: Math.sin(angle) }; lastShootDir = touchAimDir; player.angle = angle; }
+                else { touchAimDir = { x: 0, y: 0 }; }
             }
         }
-
-        if (!leftActive) resetLeftStick();
-        if (!rightActive) resetRightStick();
-        
+        if (!leftActive) { touchMoveDir = { x: 0, y: 0 }; leftKnob.style.transform = 'translate(0,0)'; }
+        if (!rightActive) { touchAimDir = { x: 0, y: 0 }; rightKnob.style.transform = 'translate(0,0)'; }
         e.preventDefault();
     }
 
-    window.addEventListener('touchstart', (e) => { 
-        if(isGameActive && !isGameOver) { 
-            if (!hasMoved) { hasMoved = true; gameStartTime = Date.now(); } 
-            handleTouches(e); 
-        }
-    }, {passive: false});
-
-    window.addEventListener('touchmove', (e) => { 
-        if(isGameActive && !isGameOver) handleTouches(e); 
-    }, {passive: false});
-
-    window.addEventListener('touchend', (e) => {
-        if(isGameActive && !isGameOver) handleTouches(e);
-    });
-
-    window.addEventListener('touchcancel', (e) => {
-        if(isGameActive && !isGameOver) handleTouches(e);
-    });
+    window.addEventListener('touchstart', (e) => { if(isGameActive && !isGameOver) { if (!hasMoved) { hasMoved = true; gameStartTime = Date.now(); } handleTouches(e); } }, {passive: false});
+    window.addEventListener('touchmove', (e) => { if(isGameActive && !isGameOver) handleTouches(e); }, {passive: false});
+    window.addEventListener('touchend', (e) => { if(isGameActive && !isGameOver) handleTouches(e); });
 
     function triggerLoss() {
         if(isGameOver) return;
-        isGameOver = true;
-        if(bgm) bgm.pause();
-        
-        let popupsCount = 0;
-        let glitchInterval = setInterval(() => {
+        isGameOver = true; if(bgm) bgm.pause();
+        let count = 0;
+        let int = setInterval(() => {
             playSynthSFX('glitch');
-            let div = document.createElement('div');
-            div.className = 'nier-popup';
-            div.style.left = (10 + Math.random() * 60) + '%';
-            div.style.top = (10 + Math.random() * 60) + '%';
+            let div = document.createElement('div'); div.className = 'nier-popup';
+            div.style.left = (10 + Math.random() * 60) + '%'; div.style.top = (10 + Math.random() * 60) + '%';
             div.innerHTML = `<div class="nier-popup-header">WARNING</div>SYSTEM CORRUPTED<br>איבדת נקודת פגיעה`;
             document.body.appendChild(div);
-            popupsCount++;
-            
-            if (popupsCount >= 8) { 
-                clearInterval(glitchInterval); 
-                setTimeout(() => {
-                    restartContainer.style.display = 'flex'; 
-                }, 600); 
-            }
+            if (++count >= 8) { clearInterval(int); setTimeout(() => { restartContainer.style.display = 'flex'; }, 600); }
         }, 150);
+    }
+
+    function triggerWin() {
+        if(isGameOver) return;
+        isGameOver = true; if(bgm) bgm.pause();
+        playSynthSFX('win');
+        document.getElementById('unlock-code').innerText = config.code;
+        setTimeout(() => { winContainer.style.display = 'flex'; }, 500);
     }
 
     function loop(time) {
         if(!isGameActive || isGameOver) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        let timeLeft = 60;
-        if (hasMoved) {
-            timeLeft = 60 - Math.floor((Date.now() - gameStartTime) / 1000);
-        }
+        let timeLeft = config.time;
+        if (hasMoved) timeLeft = config.time - Math.floor((Date.now() - gameStartTime) / 1000);
         if (timeLeft <= 0) { triggerLoss(); return; }
 
-        player.x += touchMoveDir.x * 2.8;
-        player.y += touchMoveDir.y * 2.8;
-        player.x = Math.max(15, Math.min(canvas.width-15, player.x));
-        player.y = Math.max(15, Math.min(canvas.height-15, player.y));
+        player.x = Math.max(15, Math.min(canvas.width-15, player.x + touchMoveDir.x * 3));
+        player.y = Math.max(15, Math.min(canvas.height-15, player.y + touchMoveDir.y * 3));
 
-        if(hasMoved && time - player.lastShot > 110) {
-            if (touchAimDir.x !== 0 || touchAimDir.y !== 0) {
-                bullets.push({ x: player.x, y: player.y, vx: lastShootDir.x * 12, vy: lastShootDir.y * 12 });
-                player.lastShot = time;
-                playSynthSFX('shoot');
-            }
+        if(hasMoved && time - player.lastShot > 110 && (touchAimDir.x !== 0 || touchAimDir.y !== 0)) {
+            bullets.push({ x: player.x, y: player.y, vx: lastShootDir.x * 12, vy: lastShootDir.y * 12 });
+            player.lastShot = time; playSynthSFX('shoot');
         }
 
         if (time - core.lastShot > 1200) { 
-            let angleToPlayer = Math.atan2(player.y - core.y, player.x - core.x);
-            for(let offset of [-0.1, 0, 0.1]) {
-                enemyBullets.push({ x: core.x, y: core.y, vx: Math.cos(angleToPlayer + offset) * 3.5, vy: Math.sin(angleToPlayer + offset) * 3.5 });
-            }
+            let angle = Math.atan2(player.y - core.y, player.x - core.x);
+            for(let o of [-0.1, 0, 0.1]) enemyBullets.push({ x: core.x, y: core.y, vx: Math.cos(angle + o) * 3.5, vy: Math.sin(angle + o) * 3.5 });
             core.lastShot = time;
         }
 
         walls.forEach((w, wi) => {
-            if(w.rotate) {
-                w.angle += w.speed;
-                w.x = core.x + Math.cos(w.angle) * w.dist;
-                w.y = core.y + Math.sin(w.angle) * w.dist;
-            }
-            ctx.fillStyle = "#5a554a";
-            ctx.save(); ctx.translate(w.x, w.y); ctx.rotate(w.angle || 0);
-            ctx.fillRect(-w.size/2, -w.size/2, w.size, w.size);
-            ctx.strokeStyle = "#c8c2b5"; ctx.lineWidth = 1.5; ctx.strokeRect(-w.size/2, -w.size/2, w.size, w.size);
-            ctx.restore();
+            if(w.rotate) { w.angle += w.speed; w.x = core.x + Math.cos(w.angle) * w.dist; w.y = core.y + Math.sin(w.angle) * w.dist; }
+            ctx.fillStyle = "#5a554a"; ctx.save(); ctx.translate(w.x, w.y); ctx.rotate(w.angle || 0);
+            ctx.fillRect(-w.size/2, -w.size/2, w.size, w.size); ctx.restore();
         });
 
         for (let bi = bullets.length - 1; bi >= 0; bi--) {
             let b = bullets[bi]; b.x += b.vx; b.y += b.vy;
-            ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, 7); ctx.fill();
             let hit = false;
             for (let wi = walls.length - 1; wi >= 0; wi--) {
                 let w = walls[wi];
@@ -435,43 +365,30 @@
             }
             if (!hit && Math.hypot(b.x - core.x, b.y - core.y) < core.size) {
                 core.hp -= 0.2; hit = true; playSynthSFX('hit');
-                
-                let hackPercent = Math.min(100, Math.max(0, Math.floor((1 - core.hp/core.maxHp) * 100)));
-                progressText.innerText = hackPercent;
-                
-                if(core.hp <= 0) { 
-                    isGameOver = true; if(bgm) bgm.pause(); playSynthSFX('win'); 
-                    setTimeout(() => { 
-                        alert("המערכת נפרצה בהצלחה!\n\nקיבלת קוד 1234 לפתיחת התיבה"); 
-                        location.reload(true); 
-                    }, 800); 
-                }
+                progressText.innerText = Math.min(100, Math.floor((1 - core.hp/core.maxHp) * 100));
+                if(core.hp <= 0) { triggerWin(); return; }
             }
             if (hit || b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) bullets.splice(bi, 1);
         }
 
         for (let ei = enemyBullets.length - 1; ei >= 0; ei--) {
             let eb = enemyBullets[ei]; eb.x += eb.vx; eb.y += eb.vy;
-            ctx.fillStyle = "#ff3366"; ctx.beginPath(); ctx.arc(eb.x, eb.y, 4, 0, Math.PI*2); ctx.fill();
-            
+            ctx.fillStyle = "#ff3366"; ctx.beginPath(); ctx.arc(eb.x, eb.y, 4, 0, 7); ctx.fill();
             if (hasMoved && time > player.invulnerableUntil && Math.hypot(eb.x - player.x, eb.y - player.y) < player.size + 2) {
-                player.hp -= 1; player.invulnerableUntil = time + 1500;
+                player.hp--; player.invulnerableUntil = time + 1500;
                 if (player.hp <= 0) triggerLoss(); else playSynthSFX('hit');
                 enemyBullets.splice(ei, 1); continue;
             }
             if (eb.x < 0 || eb.x > canvas.width || eb.y < 0 || eb.y > canvas.height) enemyBullets.splice(ei, 1);
         }
 
-        ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(core.x, core.y, core.size, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#222"; ctx.beginPath(); ctx.arc(core.x, core.y, core.size, 0, 7); ctx.fill();
         ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
         ctx.fillStyle = timeLeft <= 10 ? "#cc3300" : "#5a554a"; 
         ctx.font = "bold 14px 'Courier New'"; ctx.fillText(timeLeft + "s", player.x + 18, player.y - 18);
 
         ctx.save(); ctx.translate(player.x, player.y); ctx.rotate(player.angle + Math.PI/2);
-        
-        let isBlinking = (!hasMoved && Math.floor(time / 300) % 2 === 0) || (hasMoved && time < player.invulnerableUntil && Math.floor(time / 100) % 2 === 0);
-        
-        if (!isBlinking) {
+        if (!((!hasMoved && Math.floor(time/300)%2===0) || (hasMoved && time<player.invulnerableUntil && Math.floor(time/100)%2===0))) {
             ctx.fillStyle = "#111"; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
             if (player.hp >= 1) { ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(-4, 5); ctx.lineTo(4, 5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
             if (player.hp >= 2) { ctx.beginPath(); ctx.moveTo(3, -2); ctx.lineTo(9, 7); ctx.lineTo(4, 5); ctx.closePath(); ctx.fill(); ctx.stroke(); }
@@ -480,8 +397,6 @@
         ctx.restore();
         requestAnimationFrame(loop);
     }
-    
-    // הסרתי מכאן את הקריאה ל-initEnvironment()
 </script>
 </body>
 </html>
